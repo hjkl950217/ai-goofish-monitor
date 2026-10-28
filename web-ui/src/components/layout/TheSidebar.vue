@@ -6,8 +6,9 @@ import {
   ListTodo, 
   Users, 
   Layers, 
-  Terminal, 
+  Terminal,
   Settings2,
+  SlidersHorizontal,
   ChevronRight
 } from 'lucide-vue-next'
 import { useWebSocket } from '@/composables/useWebSocket'
@@ -25,6 +26,7 @@ const navItems = computed(() => [
   { to: '/accounts', label: t('sidebar.accounts'), icon: Users },
   { to: '/results', label: t('sidebar.results'), icon: Layers },
   { to: '/logs', label: t('sidebar.logs'), icon: Terminal },
+  { to: '/ops', label: t('sidebar.ops'), icon: SlidersHorizontal },
   { to: '/settings', label: t('sidebar.settings'), icon: Settings2 },
 ])
 

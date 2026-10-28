@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List
 from src.infrastructure.config.env_manager import env_manager
+from src.services.account_state_store import read_expiry
 
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
@@ -70,9 +71,11 @@ async def list_accounts():
     accounts = []
     for filename in sorted(files):
         name = filename[:-5]
+        path = os.path.join(state_dir, filename)
         accounts.append({
             "name": name,
-            "path": os.path.join(state_dir, filename),
+            "path": path,
+            "expires_at": read_expiry(path),
         })
     return accounts
 

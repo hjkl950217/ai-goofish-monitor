@@ -12,6 +12,7 @@ from typing import Optional
 
 from src.infrastructure.persistence.sqlite_bootstrap import bootstrap_sqlite_storage
 from src.infrastructure.persistence.sqlite_connection import sqlite_connection
+from src.services import account_state_store
 
 STATE_FILE_ENV = "FAVORITE_STATE_FILE"
 ACCOUNT_STATE_DIR_ENV = "ACCOUNT_STATE_DIR"
@@ -173,6 +174,13 @@ async def _sync_site_favorite(item_id: str, desired: bool) -> bool:
                 after = await _read_marked_state(page)
                 return after == "已收藏"
             finally:
+                try:
+                    state = await context.storage_state()
+                    await asyncio.to_thread(
+                        account_state_store.merge_and_save, state_file, state
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
                 await context.close()
         finally:
             await browser.close()

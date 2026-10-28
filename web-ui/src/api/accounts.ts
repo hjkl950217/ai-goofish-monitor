@@ -3,6 +3,8 @@ import { http } from '@/lib/http'
 export interface AccountItem {
   name: string
   path: string
+  /** 登录票据过期时间，秒级时间戳；取不到时为 null */
+  expires_at: number | null
 }
 
 export interface AccountDetail extends AccountItem {

@@ -68,6 +68,13 @@ function goCreateTask(name: string) {
   router.push({ path: '/tasks', query: { account: name, create: '1' } })
 }
 
+function formatExpiry(ts: number | null): string {
+  if (!ts) return t('accounts.list.expiryUnknown')
+  const days = Math.ceil((ts * 1000 - Date.now()) / 86400000)
+  if (days <= 0) return t('accounts.list.expiryExpired')
+  return t('accounts.list.expiryDays', { days })
+}
+
 async function handleCreateAccount() {
   if (!newName.value.trim() || !newContent.value.trim()) {
     toast({ title: t('accounts.toasts.incomplete'), description: t('accounts.toasts.createDescriptionRequired'), variant: 'destructive' })
@@ -183,6 +190,9 @@ onMounted(fetchAccounts)
                 <Button size="sm" variant="outline" @click="goCreateTask(account.name)">{{ t('accounts.list.createTask') }}</Button>
               </div>
               <p class="break-all text-sm text-slate-500">{{ account.path }}</p>
+              <p class="text-sm text-slate-500">
+                {{ t('accounts.list.expiry') }}：{{ formatExpiry(account.expires_at) }}
+              </p>
             </div>
             <div class="mt-4 flex flex-wrap gap-2">
               <Button size="sm" variant="outline" class="flex-1 min-w-[120px]" @click="openEditDialog(account.name)">{{ t('accounts.list.update') }}</Button>
@@ -197,19 +207,21 @@ onMounted(fetchAccounts)
               <TableRow>
                 <TableHead>{{ t('accounts.list.name') }}</TableHead>
                 <TableHead>{{ t('accounts.list.file') }}</TableHead>
+                <TableHead>{{ t('accounts.list.expiry') }}</TableHead>
                 <TableHead class="text-right">{{ t('accounts.list.actions') }}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               <TableRow v-if="isLoading">
-                <TableCell colspan="3" class="h-20 text-center text-muted-foreground">{{ t('common.loading') }}</TableCell>
+                <TableCell colspan="4" class="h-20 text-center text-muted-foreground">{{ t('common.loading') }}</TableCell>
               </TableRow>
               <TableRow v-else-if="accounts.length === 0">
-                <TableCell colspan="3" class="h-20 text-center text-muted-foreground">{{ t('accounts.list.empty') }}</TableCell>
+                <TableCell colspan="4" class="h-20 text-center text-muted-foreground">{{ t('accounts.list.empty') }}</TableCell>
               </TableRow>
               <TableRow v-else v-for="account in accounts" :key="account.name">
                 <TableCell class="font-medium">{{ account.name }}</TableCell>
                 <TableCell class="text-sm text-gray-500">{{ account.path }}</TableCell>
+                <TableCell class="text-sm text-gray-500">{{ formatExpiry(account.expires_at) }}</TableCell>
                 <TableCell class="text-right">
                   <div class="flex justify-end gap-2">
                     <Button size="sm" variant="outline" @click="goCreateTask(account.name)">{{ t('accounts.list.createTask') }}</Button>

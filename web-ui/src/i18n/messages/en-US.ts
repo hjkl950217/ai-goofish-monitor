@@ -17,6 +17,7 @@ const enUS = {
     results: 'Results',
     itemDetail: 'Item Detail',
     logs: 'Logs',
+    ops: 'Ops',
     settings: 'Settings',
   },
   common: {
@@ -73,6 +74,7 @@ const enUS = {
     accounts: 'Accounts',
     results: 'Results',
     logs: 'Logs',
+    ops: 'Ops',
     settings: 'Settings',
     systemStatus: 'System Status',
     backendConnected: 'Realtime backend connected',

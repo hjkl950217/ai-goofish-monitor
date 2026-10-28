@@ -33,6 +33,8 @@ if str(REPO_ROOT) not in sys.path:
 
 from playwright.async_api import async_playwright  # noqa: E402
 
+from src.services import account_state_store  # noqa: E402
+
 DB_PATH = os.getenv("APP_DATABASE_FILE", "data/app.sqlite3")
 STATE_PATH = "data/backfill_state.json"
 DETAIL_PATTERN = "mtop.taobao.idle.pc.detail"
@@ -201,6 +203,10 @@ async def run_fetch(args: argparse.Namespace) -> None:
             save_state(state)
             await asyncio.sleep(random.uniform(2, 4))
 
+        try:
+            account_state_store.merge_and_save(state_file, await context.storage_state())
+        except Exception as exc:  # noqa: BLE001
+            print(f"[fetch] 登录态写回失败（不影响回填结果）: {exc}")
         await browser.close()
 
     print(f"[fetch] 完成。失效 {len(state['dead'])} 条，不确定 {len(state['uncertain'])} 条")

@@ -22,6 +22,7 @@ from src.api.routes import (
     reanalyze,
     items,
     model_check,
+    ops,
 )
 from src.api.dependencies import (
     set_process_service,
@@ -125,6 +126,7 @@ app.include_router(favorites.router)
 app.include_router(reanalyze.router)
 app.include_router(items.router)
 app.include_router(model_check.router)
+app.include_router(ops.router)
 
 # 静态资源均为 Vite 哈希产物，可缓存 - 注册 GZip 压缩以加快页面加载
 app.add_middleware(GZipMiddleware, minimum_size=1000)

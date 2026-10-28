@@ -68,7 +68,7 @@ from src.services.item_refresh_service import (
     record_refresh,
 )
 from src.services.item_detail_service import list_item_images
-from src.services import model_check_service
+from src.services import account_state_store, browser_trace_service, model_check_service
 from src.services.seller_profile_cache import SellerProfileCache
 from src.services.search_pagination import (
     advance_search_page,
@@ -464,6 +464,22 @@ def _clean_kwargs(options: dict) -> dict:
     return {k: v for k, v in options.items() if v is not None}
 
 
+async def _collect_login_state(context, state_file: str, sink: dict) -> None:
+    """抓浏览器里的最新登录态暂存起来，由任务结束时统一写回（一次任务只写一次）。"""
+    try:
+        sink[state_file] = await context.storage_state()
+    except Exception as exc:  # noqa: BLE001
+        print(f"警告：读取登录态失败（不影响本次任务）: {exc}")
+
+
+async def _flush_login_states(pending: dict) -> None:
+    for state_file, state in list(pending.items()):
+        try:
+            await asyncio.to_thread(account_state_store.merge_and_save, state_file, state)
+        except Exception as exc:  # noqa: BLE001
+            print(f"警告：登录态写回失败（不影响本次任务）: {exc}")
+
+
 def _looks_like_mobile(ua: str) -> Optional[bool]:
     if not ua:
         return None
@@ -757,7 +773,11 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
         picked = proxy_pool.pick_random()
         return picked or selected_proxy
 
-    async def _run_scrape_attempt(state_file: str, proxy_server: Optional[str]) -> int:
+    pending_states: dict = {}
+
+    async def _run_scrape_attempt(
+        state_file: str, proxy_server: Optional[str], pending: dict
+    ) -> int:
         processed_item_count = 0
         stop_scraping = False
         # 开关和 prompt 文件在任务开始时定一次，跑的过程中不再变
@@ -860,6 +880,17 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                 os.makedirs(debug_dir, exist_ok=True)
                 _attach_search_capture(page, debug_dir)
                 print(f"LOG: [DEBUG] 采集搜索请求与响应 -> {debug_dir}")
+
+            trace = None
+            try:
+                trace = browser_trace_service.start(
+                    str(task_config.get("task_name") or "task"), state_file
+                )
+                if trace is not None:
+                    trace.attach(context)
+                    print(f"LOG: [TRACE] 浏览器行为采样 -> {trace.path}")
+            except Exception as exc:  # noqa: BLE001
+                print(f"警告：浏览器采样启动失败（不影响本次任务）: {exc}")
 
             try:
                 # 步骤 0 - 模拟真实用户：先访问首页（重要的反检测措施）
@@ -1430,6 +1461,12 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                 if analysis_dispatcher is not None:
                     log_time("等待后台分析任务完成...")
                     await analysis_dispatcher.join()
+                await _collect_login_state(context, state_file, pending)
+                if trace is not None:
+                    try:
+                        await trace.snapshot(context, page)
+                    finally:
+                        trace.close()
                 log_time("任务执行完毕，浏览器将在5秒后自动关闭...")
                 await asyncio.sleep(5)
                 if debug_limit:
@@ -1525,7 +1562,9 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
             print(f"IP 轮换：使用代理 {proxy_server}")
 
         try:
-            processed_item_count += await _run_scrape_attempt(state_path, proxy_server)
+            processed_item_count += await _run_scrape_attempt(
+                state_path, proxy_server, pending_states
+            )
             last_error = ""
             FAILURE_GUARD.record_success(task_name_for_guard)
             break
@@ -1543,6 +1582,9 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
             print(f"本次尝试失败: {last_error}")
             if attempt < attempt_limit:
                 print("将尝试轮换账号/IP 后重试...")
+
+    # 登录态一次任务只写一次，轮换过几个账号就写几份
+    await _flush_login_states(pending_states)
 
     if last_error:
         await _notify_task_failure(task_config, last_error, cookie_path=last_state_path)

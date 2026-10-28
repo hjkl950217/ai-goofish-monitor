@@ -17,6 +17,7 @@ const zhCN = {
     results: '结果查看',
     itemDetail: '商品详情',
     logs: '运行日志',
+    ops: '运维配置',
     settings: '系统设置',
   },
   common: {
@@ -73,6 +74,7 @@ const zhCN = {
     accounts: '账号管理',
     results: '结果查看',
     logs: '运行日志',
+    ops: '运维配置',
     settings: '系统设置',
     systemStatus: '系统状态',
     backendConnected: '后端实时已连接',
