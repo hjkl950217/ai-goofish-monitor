@@ -35,6 +35,12 @@ const routes = [
         meta: { titleKey: 'routes.accounts', requiresAuth: true },
       },
       {
+        path: 'results/item/:itemId',
+        name: 'ItemDetail',
+        component: () => import('@/views/ItemDetailView.vue'),
+        meta: { titleKey: 'routes.itemDetail', requiresAuth: true },
+      },
+      {
         path: 'results',
         name: 'Results',
         component: () => import('@/views/ResultsView.vue'),

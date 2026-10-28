@@ -1112,6 +1112,13 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                                 item_data["浏览量"] = await safe_get(
                                     item_do, "browseCnt", default="-"
                                 )
+                                item_description = await safe_get(
+                                    item_do, "desc", default=""
+                                )
+                                if isinstance(item_description, str):
+                                    item_description = item_description.strip()
+                                if item_description:
+                                    item_data["商品描述"] = item_description
                                 # ...[此处可添加更多从详情页解析出的商品信息]...
 
                                 user_id = await safe_get(seller_do, "sellerId")

@@ -23,6 +23,8 @@ SORT_COLUMN_MAP = {
     "publish_time": "COALESCE(publish_time, '')",
     "price": "COALESCE(price, 0)",
     "keyword_hit_count": "keyword_hit_count",
+    # 性价比分值存放在 raw_json 的 ai_analysis 中，缺失时用 -1 使其排在末位
+    "score": "COALESCE(json_extract(raw_json, '$.ai_analysis.value_score'), -1)",
 }
 
 

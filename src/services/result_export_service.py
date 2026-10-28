@@ -12,6 +12,12 @@ EXPORT_HEADERS = [
     "商品标题",
     "当前售价",
     "发布时间",
+    "发货地区",
+    "浏览量",
+    "想要人数",
+    "商品标签",
+    "卖家在售数",
+    "卖家已售数",
     "卖家昵称",
     "AI是否推荐",
     "分析来源",
@@ -26,6 +32,13 @@ EXPORT_HEADERS = [
 ]
 
 
+def _listing_counts(seller: dict) -> tuple[int, int]:
+    items = seller.get("卖家发布的商品列表") or []
+    on_sale = sum(1 for entry in items if isinstance(entry, dict) and entry.get("商品状态") == "在售")
+    sold = sum(1 for entry in items if isinstance(entry, dict) and entry.get("商品状态") == "已售")
+    return on_sale, sold
+
+
 def build_results_csv(records: list[dict]) -> str:
     buffer = StringIO()
     writer = csv.DictWriter(buffer, fieldnames=EXPORT_HEADERS)
@@ -36,6 +49,8 @@ def build_results_csv(records: list[dict]) -> str:
         seller = record.get("卖家信息", {}) or {}
         ai_analysis = record.get("ai_analysis", {}) or {}
         price_insight = record.get("price_insight", {}) or {}
+        on_sale, sold = _listing_counts(seller)
+        tags = item.get("商品标签") or []
         writer.writerow(
             {
                 "任务名称": record.get("任务名称", ""),
@@ -44,6 +59,12 @@ def build_results_csv(records: list[dict]) -> str:
                 "商品标题": item.get("商品标题", ""),
                 "当前售价": item.get("当前售价", ""),
                 "发布时间": item.get("发布时间", ""),
+                "发货地区": item.get("发货地区", ""),
+                "浏览量": item.get("浏览量", ""),
+                "想要人数": item.get("“想要”人数", ""),
+                "商品标签": " ".join(str(tag) for tag in tags) if isinstance(tags, list) else tags,
+                "卖家在售数": on_sale,
+                "卖家已售数": sold,
                 "卖家昵称": seller.get("卖家昵称") or item.get("卖家昵称", ""),
                 "AI是否推荐": "是" if ai_analysis.get("is_recommended") else "否",
                 "分析来源": ai_analysis.get("analysis_source", ""),

@@ -197,7 +197,13 @@ async def download_all_images(product_id, image_urls, task_name="default", concu
 
 
 def cleanup_task_images(task_name):
-    """清理指定任务的图片目录"""
+    """清理指定任务的图片目录。
+
+    设置 KEEP_TASK_IMAGES=true 时保留图片，便于后续重新分析直接复用（下载逻辑会跳过已存在文件）。
+    """
+    if os.getenv("KEEP_TASK_IMAGES", "false").strip().lower() in ("1", "true", "yes", "on"):
+        safe_print(f"   [清理] KEEP_TASK_IMAGES 已开启，保留任务 '{task_name}' 的图片")
+        return
     task_image_dir = os.path.join(IMAGE_SAVE_DIR, f"{TASK_IMAGE_DIR_PREFIX}{task_name}")
     if os.path.exists(task_image_dir):
         try:
@@ -293,6 +299,75 @@ async def send_ntfy_notification(product_data, reason):
             continue
         safe_print(f"   -> {channel} 通知发送失败: {result['message']}")
     return results
+
+
+def _has_value_score(parsed_response) -> bool:
+    """判断解析结果是否带有有效的性价比分值。"""
+    value = parsed_response.get("value_score")
+    if value is None or isinstance(value, bool):
+        return False
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    return 0 <= number <= 100
+
+
+async def _repair_value_score(product_details_json: str, parsed_response: dict) -> bool:
+    """模型漏输出性价比分值时，用一次轻量纯文本请求补齐。
+
+    不带图片、不重复完整分析，仅要求给出 value_score / value_summary。
+    """
+    safe_print("   [AI分析] 响应缺少 value_score，发起补分请求...")
+    criteria = parsed_response.get("criteria_analysis") or {}
+    reason = str(parsed_response.get("reason") or "")[:600]
+    brief = json.dumps({
+        "商品数据": json.loads(product_details_json),
+        "已有结论": {
+            "is_recommended": parsed_response.get("is_recommended"),
+            "reason": reason,
+            "criteria_analysis": criteria,
+        },
+    }, ensure_ascii=False)
+
+    ask = (
+        "根据下面的商品数据与已有判定结论，补充给出性价比评估。"
+        "只输出 JSON，格式为："
+        '{"value_score": 0-100 的整数, "value_summary": "一句话性价比结论"}。'
+        "不要输出其它字段。\n\n" + brief
+    )
+
+    try:
+        from src.config import get_ai_request_params
+
+        params = build_ai_request_params(
+            CHAT_COMPLETIONS_API_MODE,
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": ask}],
+            temperature=0.05,
+            max_output_tokens=600,
+            enable_json_output=ENABLE_RESPONSE_FORMAT,
+        )
+        params = get_ai_request_params(**params)
+        response = await create_ai_response_async(client, CHAT_COMPLETIONS_API_MODE, params)
+        content = extract_ai_response_content(response)
+        patch = parse_ai_response_json(content)
+
+        score = patch.get("value_score")
+        if score is None:
+            safe_print("   [AI分析] 补分响应仍缺少 value_score")
+            return False
+        number = float(score)
+        number = max(0.0, min(100.0, number))
+        parsed_response["value_score"] = int(round(number))
+        summary = patch.get("value_summary")
+        if isinstance(summary, str) and summary.strip():
+            parsed_response["value_summary"] = summary.strip()
+        safe_print(f"   [AI分析] 补分成功: {parsed_response['value_score']}")
+        return True
+    except Exception as exc:  # noqa: BLE001
+        safe_print(f"   [AI分析] 补分失败: {exc}")
+        return False
 
 
 async def get_ai_analysis(product_data, image_paths=None, prompt_text=""):
@@ -423,6 +498,8 @@ async def get_ai_analysis(product_data, image_paths=None, prompt_text=""):
                 # 验证响应格式
                 if validate_ai_response_format(parsed_response):
                     safe_print(f"   [AI分析] 第{attempt + 1}次尝试成功，响应格式验证通过")
+                    if not _has_value_score(parsed_response):
+                        await _repair_value_score(product_details_json, parsed_response)
                     return parsed_response
                 safe_print(f"   [AI分析] 第{attempt + 1}次尝试格式验证失败")
                 if attempt < max_retries - 1:

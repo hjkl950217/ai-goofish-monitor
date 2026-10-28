@@ -51,7 +51,8 @@ def test_get_ai_analysis_returns_parsed_json(monkeypatch, tmp_path):
         return SimpleNamespace(
             output_text=(
                 '{"prompt_version":"v1","is_recommended":true,'
-                '"reason":"ok","risk_tags":[],"criteria_analysis":{"seller_type":"个人"}}'
+                '"reason":"ok","risk_tags":[],"criteria_analysis":{"seller_type":"个人"},'
+                '"value_score":80,"value_summary":"价格合适"}'
             )
         )
 
@@ -69,7 +70,40 @@ def test_get_ai_analysis_returns_parsed_json(monkeypatch, tmp_path):
     )
 
     assert result["is_recommended"] is True
+    assert result["value_score"] == 80
     assert call_count["value"] == 1
+
+
+def test_get_ai_analysis_repairs_missing_value_score(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    call_count = {"value": 0}
+    responses = [
+        '{"prompt_version":"v1","is_recommended":true,'
+        '"reason":"ok","risk_tags":[],"criteria_analysis":{"seller_type":"个人"}}',
+        '{"value_score":66,"value_summary":"可以再等等"}',
+    ]
+
+    async def fake_create(**_kwargs):
+        index = min(call_count["value"], len(responses) - 1)
+        call_count["value"] += 1
+        return SimpleNamespace(output_text=responses[index])
+
+    monkeypatch.setattr(ai_handler, "client", _build_fake_client(fake_create))
+    monkeypatch.setattr(ai_handler, "MODEL_NAME", "fake-model")
+    monkeypatch.setattr(ai_handler, "ENABLE_RESPONSE_FORMAT", True)
+    monkeypatch.setattr(app_config, "ENABLE_RESPONSE_FORMAT", True)
+
+    result = asyncio.run(
+        ai_handler.get_ai_analysis(
+            {"商品信息": {"商品ID": "3", "商品标题": "测试商品3"}},
+            image_paths=[],
+            prompt_text="请输出 JSON",
+        )
+    )
+
+    assert result["value_score"] == 66
+    assert result["value_summary"] == "可以再等等"
+    assert call_count["value"] == 2
 
 
 def test_get_ai_analysis_retries_without_structured_output_when_model_rejects_it(
