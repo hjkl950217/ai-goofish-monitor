@@ -87,17 +87,28 @@ def remove_result(result_filename: str, item_id: str, task_name: str) -> None:
 
 
 def _remove_images(task_name: str, item_id: str) -> None:
-    base = os.path.join(IMAGE_SAVE_DIR, f"{TASK_IMAGE_DIR_PREFIX}{task_name}")
-    if not os.path.isdir(base):
-        return
+    """删该商品的所有本地图片。
+
+    图片目录按任务名分，但复查补图时用的是当前任务名，
+    历史记录的 task_name 可能对不上，所以扫所有任务目录。
+    """
     prefix = f"product_{item_id}_"
-    for name in os.listdir(base):
-        if not name.startswith(prefix):
+    roots = {os.path.join(IMAGE_SAVE_DIR, f"{TASK_IMAGE_DIR_PREFIX}{task_name}")}
+    if os.path.isdir(IMAGE_SAVE_DIR):
+        for name in os.listdir(IMAGE_SAVE_DIR):
+            if name.startswith(TASK_IMAGE_DIR_PREFIX):
+                roots.add(os.path.join(IMAGE_SAVE_DIR, name))
+
+    for base in roots:
+        if not os.path.isdir(base):
             continue
-        try:
-            os.remove(os.path.join(base, name))
-        except OSError:
-            pass
+        for name in os.listdir(base):
+            if not name.startswith(prefix):
+                continue
+            try:
+                os.remove(os.path.join(base, name))
+            except OSError:
+                pass
 
 
 # ------------------------------------------------------------------ 主流程

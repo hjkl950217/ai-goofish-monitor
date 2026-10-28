@@ -162,3 +162,18 @@ def test_remove_result_deletes_row_and_images(seeded_db, tmp_path, monkeypatch):
     with sqlite_connection() as conn:
         remaining = [r["item_id"] for r in conn.execute("SELECT item_id FROM result_items")]
     assert remaining == ["2"]
+
+
+def test_remove_result_cleans_images_from_other_task_dirs(seeded_db, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    other_task_dir = tmp_path / "images" / "task_images_另一个任务"
+    other_task_dir.mkdir(parents=True)
+    target = other_task_dir / "product_1_1_b.jpg"
+    bystander = other_task_dir / "product_2_1_b.jpg"
+    target.write_bytes(b"x")
+    bystander.write_bytes(b"x")
+
+    backfill.remove_result(FILENAME, "1", TASK_NAME)
+
+    assert target.exists() is False
+    assert bystander.exists() is True
