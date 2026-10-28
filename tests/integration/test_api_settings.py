@@ -333,12 +333,11 @@ def test_ai_settings_fall_back_to_runtime_environment_when_env_file_missing(tmp_
 
     ai_response = client.get("/api/settings/ai")
     assert ai_response.status_code == 200
-    assert ai_response.json() == {
-        "OPENAI_BASE_URL": "https://runtime.example.com/v1",
-        "OPENAI_MODEL_NAME": "runtime-model",
-        "SKIP_AI_ANALYSIS": False,
-        "PROXY_URL": "http://127.0.0.1:7890",
-    }
+    ai_payload = ai_response.json()
+    assert ai_payload["OPENAI_BASE_URL"] == "https://runtime.example.com/v1"
+    assert ai_payload["OPENAI_MODEL_NAME"] == "runtime-model"
+    assert ai_payload["SKIP_AI_ANALYSIS"] is False
+    assert ai_payload["PROXY_URL"] == "http://127.0.0.1:7890"
 
     status_response = client.get("/api/settings/status")
     assert status_response.status_code == 200

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional
 
 from src.keyword_rule_engine import build_search_text, evaluate_keyword_rules
+from src.services import model_check_service
 
 
 SellerLoader = Callable[[str], Awaitable[dict]]
@@ -32,6 +33,8 @@ class ItemAnalysisJob:
     registration_duration_text: str
     # 复查触发的重新分析：保留原卖家信息，落库走上更新而不是插入
     update_existing: bool = False
+    # 入库前先做一次型号核对，不是任务要的型号就不落结果表
+    model_check: bool = False
 
 
 class ItemAnalysisDispatcher:
@@ -76,6 +79,17 @@ class ItemAnalysisDispatcher:
     async def _process_job(self, job: ItemAnalysisJob) -> None:
         record = copy.deepcopy(job.final_record)
         item_data = record.get("商品信息", {}) or {}
+
+        # 型号核对放在最前面：不是任务要的型号，卖家信息、AI 分析、图片都不做
+        if job.model_check and not job.update_existing:
+            verdict = await self._check_model(job, item_data)
+            if verdict is not None and verdict.get("matched") is False:
+                print(
+                    f"   [型号] 商品 {item_data.get('商品ID')} 不是「{job.keyword}」，跳过入库："
+                    f"{verdict.get('reason')}"
+                )
+                return
+
         if job.update_existing:
             record.setdefault("卖家信息", {})
         else:
@@ -101,6 +115,23 @@ class ItemAnalysisDispatcher:
         if await writer(record, job.keyword):
             self.completed_count += 1
         await self._notify_if_recommended(item_data, record["ai_analysis"])
+
+    async def _check_model(self, job: ItemAnalysisJob, item_data: dict) -> Optional[dict]:
+        """返回 None 表示判断不了，调用方放行。"""
+        item_id = str(item_data.get("商品ID") or "").strip()
+        if not item_id:
+            return None
+        try:
+            return await model_check_service.check_item(
+                item_id=item_id,
+                task_name=job.task_name,
+                target=job.keyword,
+                title=str(item_data.get("商品标题") or ""),
+                description=str(item_data.get("商品描述") or ""),
+            )
+        except Exception as exc:  # noqa: BLE001
+            print(f"   [型号] 判断出错，放行: {exc}")
+            return None
 
     async def _load_seller_info(self, job: ItemAnalysisJob) -> dict:
         seller_info = {}

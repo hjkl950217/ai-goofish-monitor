@@ -10,6 +10,7 @@ import re
 from src.config import STATE_FILE
 from src.infrastructure.persistence.sqlite_task_repository import SqliteTaskRepository
 from src.scraper import scrape_xianyu
+from src.services.prompt_defaults import ensure_default_prompts
 
 
 async def main():
@@ -97,6 +98,11 @@ async def main():
         )
 
     # 读取所有prompt文件内容（关键词模式不需要加载prompt）
+    # prompts/ 是挂载目录，宿主的空目录会盖掉镜像内容，这里先补齐内置副本
+    created_prompts = ensure_default_prompts()
+    if created_prompts:
+        print(f"已从内置副本补齐提示词: {', '.join(created_prompts)}")
+
     for task in tasks_config:
         decision_mode = str(task.get("decision_mode", "ai")).strip().lower()
         if decision_mode not in {"ai", "keyword"}:

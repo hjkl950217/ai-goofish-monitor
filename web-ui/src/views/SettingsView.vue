@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSettings } from '@/composables/useSettings'
@@ -13,6 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from '@/components/ui/toast'
 import { getPromptContent, listPrompts, updatePrompt } from '@/api/prompts'
+import { getModelCheckStatus, startModelCheck, cancelModelCheck } from '@/api/modelCheck'
+import type { ModelCheckStatus } from '@/api/modelCheck'
 import NotificationSettingsPanel from '@/components/settings/NotificationSettingsPanel.vue'
 import RotationSettingsPanel from '@/components/settings/RotationSettingsPanel.vue'
 const { t } = useI18n()
@@ -101,6 +103,65 @@ async function handleTestAi() {
     notifyError(t('settings.ai.testFailed'), (e as Error).message)
   }
 }
+
+async function handleTestModelCheck() {
+  try {
+    const res = await testAiConnection('model_check')
+    notifySuccess(t('settings.ai.testSuccess'), res.message)
+  } catch (e) {
+    notifyError(t('settings.ai.testFailed'), (e as Error).message)
+  }
+}
+
+// ---------------------------------------------------------------- 历史型号校验
+
+const modelCheckStatus = ref<ModelCheckStatus | null>(null)
+const isModelCheckBusy = ref(false)
+let pollTimer: number | null = null
+
+function schedulePoll() {
+  if (pollTimer !== null) return
+  pollTimer = window.setTimeout(async () => {
+    pollTimer = null
+    await refreshModelCheckStatus()
+  }, 2000)
+}
+
+async function refreshModelCheckStatus() {
+  try {
+    modelCheckStatus.value = await getModelCheckStatus()
+    if (modelCheckStatus.value.running) schedulePoll()
+  } catch {
+    // 进度查询失败不打扰用户，下一次轮询再试
+  }
+}
+
+async function handleStartModelCheck() {
+  isModelCheckBusy.value = true
+  try {
+    const res = await startModelCheck()
+    modelCheckStatus.value = res.status
+    schedulePoll()
+  } catch (e) {
+    notifyError(t('settings.ai.modelCheck.historyStart'), (e as Error).message)
+  } finally {
+    isModelCheckBusy.value = false
+  }
+}
+
+async function handleCancelModelCheck() {
+  try {
+    const res = await cancelModelCheck()
+    modelCheckStatus.value = res.status
+  } catch (e) {
+    notifyError(t('settings.ai.modelCheck.historyCancel'), (e as Error).message)
+  }
+}
+
+onMounted(refreshModelCheckStatus)
+onUnmounted(() => {
+  if (pollTimer !== null) window.clearTimeout(pollTimer)
+})
 
 async function fetchPrompts() {
   isPromptLoading.value = true
@@ -226,13 +287,88 @@ watch(selectedPrompt, async (value) => {
               <Label>{{ t('settings.ai.proxy') }}</Label>
               <Input v-model="aiSettings.PROXY_URL" placeholder="http://127.0.0.1:7890" />
             </div>
+
+            <!-- 型号判断模型 -->
+            <div class="space-y-4 border-t pt-4">
+              <div>
+                <h3 class="font-medium">{{ t('settings.ai.modelCheck.title') }}</h3>
+                <p class="mt-1 text-xs text-gray-500">{{ t('settings.ai.modelCheck.description') }}</p>
+              </div>
+              <label class="flex items-center gap-2 text-sm">
+                <input v-model="aiSettings.MODEL_CHECK_ENABLED" type="checkbox" class="h-4 w-4" />
+                {{ t('settings.ai.modelCheck.enabled') }}
+              </label>
+              <p v-if="aiSettings.MODEL_CHECK_PROMPT_EXISTS === false" class="text-xs text-amber-600">
+                {{ t('settings.ai.modelCheck.promptMissing') }}
+              </p>
+              <div class="grid gap-2">
+                <Label>{{ t('settings.ai.modelCheck.baseUrl') }}</Label>
+                <Input v-model="aiSettings.MODEL_CHECK_BASE_URL" placeholder="留空复用上面的地址" />
+              </div>
+              <div class="grid gap-2">
+                <Label>{{ t('settings.ai.modelCheck.apiKey') }}</Label>
+                <Input v-model="aiSettings.MODEL_CHECK_API_KEY" type="password" :placeholder="t('settings.ai.keyPlaceholder')" />
+                <p class="text-xs text-gray-500">
+                  {{ aiSettings.MODEL_CHECK_API_KEY_SET ? t('settings.ai.modelCheck.apiKeySet') : t('settings.ai.modelCheck.apiKeyMissing') }}
+                </p>
+              </div>
+              <div class="grid gap-2">
+                <Label>{{ t('settings.ai.modelCheck.modelName') }}</Label>
+                <Input v-model="aiSettings.MODEL_CHECK_MODEL_NAME" placeholder="留空复用上面的模型" />
+              </div>
+              <div class="grid gap-2">
+                <Label>{{ t('settings.ai.modelCheck.proxy') }}</Label>
+                <Input v-model="aiSettings.MODEL_CHECK_PROXY_URL" placeholder="留空复用上面的代理" />
+              </div>
+              <div class="grid gap-2">
+                <Label>{{ t('settings.ai.modelCheck.prefilter') }}</Label>
+                <Input v-model="aiSettings.MODEL_CHECK_PREFILTER_REGEX" placeholder="M1\s*[-‑_]?\s*100" />
+                <p class="text-xs text-gray-500">{{ t('settings.ai.modelCheck.prefilterHint') }}</p>
+              </div>
+            </div>
           </CardContent>
           <CardContent v-else class="py-8 text-sm text-gray-500">
             {{ t('settings.ai.loading') }}
           </CardContent>
-          <CardFooter v-if="isReady" class="flex gap-2">
+          <CardFooter v-if="isReady" class="flex flex-wrap gap-2">
             <Button variant="outline" @click="handleTestAi" :disabled="isSaving">{{ t('settings.ai.testConnection') }}</Button>
+            <Button variant="outline" @click="handleTestModelCheck" :disabled="isSaving">{{ t('settings.ai.modelCheck.test') }}</Button>
             <Button @click="handleSaveAi" :disabled="isSaving">{{ t('settings.ai.save') }}</Button>
+          </CardFooter>
+        </Card>
+
+        <Card class="mt-4">
+          <CardHeader>
+            <CardTitle>{{ t('settings.ai.modelCheck.historyTitle') }}</CardTitle>
+            <CardDescription>{{ t('settings.ai.modelCheck.historyDescription') }}</CardDescription>
+          </CardHeader>
+          <CardContent class="space-y-3">
+            <div class="flex flex-wrap items-center gap-3 text-sm">
+              <span :class="modelCheckStatus?.running ? 'font-medium text-amber-600' : 'text-slate-500'">
+                {{ modelCheckStatus?.running ? t('settings.ai.modelCheck.historyRunning') : t('settings.ai.modelCheck.historyIdle') }}
+              </span>
+              <span v-if="modelCheckStatus" class="text-slate-500">
+                {{ modelCheckStatus.done }}/{{ modelCheckStatus.total }}
+                · 匹配 {{ modelCheckStatus.matched }}
+                · 删除 {{ modelCheckStatus.removed }}
+                · 未判出 {{ modelCheckStatus.failed }}
+              </span>
+            </div>
+            <p v-if="modelCheckStatus?.message" class="text-xs text-slate-500">{{ modelCheckStatus.message }}</p>
+            <div
+              v-if="modelCheckStatus?.recent?.length"
+              class="max-h-40 overflow-y-auto rounded-lg bg-slate-50 p-2 text-xs text-slate-600"
+            >
+              <p v-for="(line, idx) in modelCheckStatus.recent.slice(-10)" :key="idx">{{ line }}</p>
+            </div>
+          </CardContent>
+          <CardFooter class="flex gap-2">
+            <Button v-if="!modelCheckStatus?.running" :disabled="isModelCheckBusy" @click="handleStartModelCheck">
+              {{ t('settings.ai.modelCheck.historyStart') }}
+            </Button>
+            <Button v-else variant="outline" @click="handleCancelModelCheck">
+              {{ t('settings.ai.modelCheck.historyCancel') }}
+            </Button>
           </CardFooter>
         </Card>
       </TabsContent>

@@ -68,6 +68,7 @@ from src.services.item_refresh_service import (
     record_refresh,
 )
 from src.services.item_detail_service import list_item_images
+from src.services import model_check_service
 from src.services.seller_profile_cache import SellerProfileCache
 from src.services.search_pagination import (
     advance_search_page,
@@ -759,6 +760,8 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
     async def _run_scrape_attempt(state_file: str, proxy_server: Optional[str]) -> int:
         processed_item_count = 0
         stop_scraping = False
+        # 开关和 prompt 文件在任务开始时定一次，跑的过程中不再变
+        model_check_enabled = model_check_service.is_usable()
 
         if not os.path.exists(state_file):
             raise FileNotFoundError(f"登录状态文件不存在: {state_file}")
@@ -1346,6 +1349,7 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                                         seller_id=str(user_id) if user_id else None,
                                         zhima_credit_text=zhima_credit_text,
                                         registration_duration_text=registration_duration_text,
+                                        model_check=model_check_enabled,
                                     )
                                 )
 

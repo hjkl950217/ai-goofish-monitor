@@ -85,12 +85,17 @@ def _sanitize_no_proxy_env() -> None:
 class AIClient:
     """AI 客户端封装"""
 
-    def __init__(self):
+    def __init__(self, settings: Optional[AISettings] = None):
+        # 传入 settings 时不读 .env，供型号判断这类独立配置的调用方使用
+        self._settings_override = settings
         self.settings: Optional[AISettings] = None
         self.client: Optional[AsyncOpenAI] = None
         self.refresh()
 
     def _load_settings(self) -> None:
+        if self._settings_override is not None:
+            self.settings = self._settings_override
+            return
         load_dotenv(dotenv_path=env_manager.env_file, override=True)
         self.settings = AISettings()
 
@@ -176,6 +181,24 @@ class AIClient:
         except Exception as e:
             print(f"AI 分析失败: {e}")
             return None
+
+    async def complete(
+        self,
+        messages: List[Dict],
+        *,
+        temperature: float = 0.1,
+        max_output_tokens: int = 4000,
+        enable_json_output: Optional[bool] = None,
+    ) -> str:
+        """直接发一组 messages，复用 _call_ai 的全部兼容性回退。"""
+        if not self.is_available():
+            raise RuntimeError("AI 客户端不可用")
+        return await self._call_ai(
+            messages,
+            temperature=temperature,
+            max_output_tokens=max_output_tokens,
+            enable_json_output=enable_json_output,
+        )
 
     def _build_messages(self, product_data: Dict, image_paths: List[str], prompt_text: str) -> List[Dict]:
         """构建 AI 消息"""

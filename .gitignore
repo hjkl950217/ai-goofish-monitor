@@ -15,6 +15,7 @@ prompts/*
 !prompts/base_prompt.txt
 !prompts/macbook_criteria.txt
 !prompts/example_criteria.txt
+!prompts/model_check_prompt.txt
 .serena/
 price_history/
 data/

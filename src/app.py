@@ -21,6 +21,7 @@ from src.api.routes import (
     favorites,
     reanalyze,
     items,
+    model_check,
 )
 from src.api.dependencies import (
     set_process_service,
@@ -31,6 +32,7 @@ from src.services.task_service import TaskService
 from src.services.process_service import ProcessService
 from src.services.scheduler_service import SchedulerService
 from src.services.task_log_cleanup_service import cleanup_task_logs
+from src.services.prompt_defaults import ensure_default_prompts
 from src.services.task_generation_service import TaskGenerationService
 from src.infrastructure.persistence.sqlite_bootstrap import bootstrap_sqlite_storage
 from src.infrastructure.persistence.sqlite_task_repository import SqliteTaskRepository
@@ -72,6 +74,9 @@ async def lifespan(app: FastAPI):
     # 启动时
     print("正在启动应用...")
     bootstrap_sqlite_storage()
+    created_prompts = ensure_default_prompts()
+    if created_prompts:
+        print(f"已从内置副本补齐提示词: {', '.join(created_prompts)}")
     cleanup_task_logs(keep_days=app_settings.task_log_retention_days)
 
     # 重置所有任务状态为停止
@@ -119,6 +124,7 @@ app.include_router(accounts.router)
 app.include_router(favorites.router)
 app.include_router(reanalyze.router)
 app.include_router(items.router)
+app.include_router(model_check.router)
 
 # 静态资源均为 Vite 哈希产物，可缓存 - 注册 GZip 压缩以加快页面加载
 app.add_middleware(GZipMiddleware, minimum_size=1000)

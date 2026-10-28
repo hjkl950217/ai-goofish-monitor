@@ -98,9 +98,18 @@ export function useSettings() {
       } else {
         delete payload.OPENAI_API_KEY
       }
+      const checkKey = (payload.MODEL_CHECK_API_KEY || '').trim()
+      if (checkKey) {
+        payload.MODEL_CHECK_API_KEY = checkKey
+      } else {
+        delete payload.MODEL_CHECK_API_KEY
+      }
       await settingsApi.updateAiSettings(payload)
       if (aiSettings.value.OPENAI_API_KEY) {
         aiSettings.value.OPENAI_API_KEY = ''
+      }
+      if (aiSettings.value.MODEL_CHECK_API_KEY) {
+        aiSettings.value.MODEL_CHECK_API_KEY = ''
       }
       // Refresh status
       systemStatus.value = await settingsApi.getSystemStatus()
@@ -124,16 +133,23 @@ export function useSettings() {
     }
   }
 
-  async function testAiConnection() {
+  async function testAiConnection(mode?: 'model_check') {
     isSaving.value = true
     try {
-      const payload = { ...aiSettings.value }
+      const payload: AiSettings & { mode?: string } = { ...aiSettings.value }
       const apiKey = (payload.OPENAI_API_KEY || '').trim()
       if (apiKey) {
         payload.OPENAI_API_KEY = apiKey
       } else {
         delete payload.OPENAI_API_KEY
       }
+      const checkKey = (payload.MODEL_CHECK_API_KEY || '').trim()
+      if (checkKey) {
+        payload.MODEL_CHECK_API_KEY = checkKey
+      } else {
+        delete payload.MODEL_CHECK_API_KEY
+      }
+      if (mode) payload.mode = mode
       const res = await settingsApi.testAiSettings(payload)
       return res
     } catch (e) {

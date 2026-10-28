@@ -62,6 +62,14 @@ export interface AiSettings {
   OPENAI_BASE_URL?: string
   OPENAI_MODEL_NAME?: string
   PROXY_URL?: string
+  MODEL_CHECK_ENABLED?: boolean
+  MODEL_CHECK_BASE_URL?: string
+  MODEL_CHECK_API_KEY?: string
+  MODEL_CHECK_MODEL_NAME?: string
+  MODEL_CHECK_PROXY_URL?: string
+  MODEL_CHECK_PREFILTER_REGEX?: string
+  MODEL_CHECK_API_KEY_SET?: boolean
+  MODEL_CHECK_PROMPT_EXISTS?: boolean
 }
 
 export interface RotationSettings {
@@ -153,7 +161,9 @@ export async function updateRotationSettings(settings: RotationSettings): Promis
   })
 }
 
-export async function testAiSettings(settings: AiSettings): Promise<{ success: boolean; message: string; response?: string }> {
+export async function testAiSettings(
+  settings: AiSettings & { mode?: string }
+): Promise<{ success: boolean; message: string; response?: string }> {
   return await http('/api/settings/ai/test', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

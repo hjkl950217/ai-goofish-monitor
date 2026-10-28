@@ -105,6 +105,16 @@ SCHEMA_STATEMENTS = (
         created_at TEXT NOT NULL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS item_model_checks (
+        item_id TEXT NOT NULL,
+        task_id INTEGER NOT NULL,
+        matched INTEGER,
+        reason TEXT,
+        checked_at TEXT NOT NULL,
+        PRIMARY KEY (item_id, task_id)
+    )
+    """,
     "CREATE INDEX IF NOT EXISTS idx_tasks_name ON tasks(task_name)",
     """
     CREATE INDEX IF NOT EXISTS idx_results_filename_crawl

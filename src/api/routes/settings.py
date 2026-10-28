@@ -2,6 +2,7 @@
 设置管理路由
 """
 import os
+from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -41,6 +42,7 @@ from src.services.process_service import ProcessService
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 AI_TEST_PROMPT = "Reply with OK only."
 AI_TEST_MAX_OUTPUT_TOKENS = 32
+_MODEL_CHECK_PROMPT_FILE = Path("prompts/model_check_prompt.txt")
 
 
 def _reload_env() -> None:
@@ -106,6 +108,13 @@ class AISettingsModel(BaseModel):
     OPENAI_MODEL_NAME: Optional[str] = None
     SKIP_AI_ANALYSIS: Optional[bool] = None
     PROXY_URL: Optional[str] = None
+    # 型号判断用独立模型；留空则回退到上面的主配置
+    MODEL_CHECK_ENABLED: Optional[bool] = None
+    MODEL_CHECK_BASE_URL: Optional[str] = None
+    MODEL_CHECK_API_KEY: Optional[str] = None
+    MODEL_CHECK_MODEL_NAME: Optional[str] = None
+    MODEL_CHECK_PROXY_URL: Optional[str] = None
+    MODEL_CHECK_PREFILTER_REGEX: Optional[str] = None
 
 
 class RotationSettingsModel(BaseModel):
@@ -261,6 +270,13 @@ async def get_ai_settings():
         "OPENAI_MODEL_NAME": env_manager.get_value("OPENAI_MODEL_NAME", ""),
         "SKIP_AI_ANALYSIS": env_manager.get_value("SKIP_AI_ANALYSIS", "false").lower() == "true",
         "PROXY_URL": env_manager.get_value("PROXY_URL", ""),
+        "MODEL_CHECK_ENABLED": env_manager.get_value("MODEL_CHECK_ENABLED", "true").lower() != "false",
+        "MODEL_CHECK_BASE_URL": env_manager.get_value("MODEL_CHECK_BASE_URL", ""),
+        "MODEL_CHECK_MODEL_NAME": env_manager.get_value("MODEL_CHECK_MODEL_NAME", ""),
+        "MODEL_CHECK_PROXY_URL": env_manager.get_value("MODEL_CHECK_PROXY_URL", ""),
+        "MODEL_CHECK_PREFILTER_REGEX": env_manager.get_value("MODEL_CHECK_PREFILTER_REGEX", ""),
+        "MODEL_CHECK_API_KEY_SET": bool(env_manager.get_value("MODEL_CHECK_API_KEY", "")),
+        "MODEL_CHECK_PROMPT_EXISTS": (_MODEL_CHECK_PROMPT_FILE).exists(),
     }
 
 
@@ -277,6 +293,18 @@ async def update_ai_settings(settings: AISettingsModel):
         updates["SKIP_AI_ANALYSIS"] = str(settings.SKIP_AI_ANALYSIS).lower()
     if settings.PROXY_URL is not None:
         updates["PROXY_URL"] = settings.PROXY_URL
+    if settings.MODEL_CHECK_ENABLED is not None:
+        updates["MODEL_CHECK_ENABLED"] = str(settings.MODEL_CHECK_ENABLED).lower()
+    if settings.MODEL_CHECK_API_KEY is not None:
+        updates["MODEL_CHECK_API_KEY"] = settings.MODEL_CHECK_API_KEY
+    if settings.MODEL_CHECK_BASE_URL is not None:
+        updates["MODEL_CHECK_BASE_URL"] = settings.MODEL_CHECK_BASE_URL
+    if settings.MODEL_CHECK_MODEL_NAME is not None:
+        updates["MODEL_CHECK_MODEL_NAME"] = settings.MODEL_CHECK_MODEL_NAME
+    if settings.MODEL_CHECK_PROXY_URL is not None:
+        updates["MODEL_CHECK_PROXY_URL"] = settings.MODEL_CHECK_PROXY_URL
+    if settings.MODEL_CHECK_PREFILTER_REGEX is not None:
+        updates["MODEL_CHECK_PREFILTER_REGEX"] = settings.MODEL_CHECK_PREFILTER_REGEX
 
     success = env_manager.update_values(updates)
     if not success:
@@ -285,28 +313,47 @@ async def update_ai_settings(settings: AISettingsModel):
     return {"message": "AI设置已成功更新"}
 
 
+def _test_config_value(payload: dict, field: str, env_key: str, fallback_env: Optional[str] = None) -> str:
+    """请求里填了就用请求的，否则用已存的，再否则用主配置的。"""
+    value = (payload.get(field) or "").strip()
+    if value:
+        return value
+    value = env_manager.get_value(env_key, "")
+    if value:
+        return value
+    return env_manager.get_value(fallback_env, "") if fallback_env else ""
+
+
 @router.post("/ai/test")
 async def test_ai_settings(settings: dict):
-    """测试AI模型设置是否有效"""
+    """测试AI模型设置是否有效。
+
+    mode=model_check 时测型号判断那套配置，留空的项回退到主配置。
+    """
     try:
         from openai import OpenAI
         import httpx
 
-        stored_api_key = env_manager.get_value("OPENAI_API_KEY", "")
-        submitted_api_key = settings.get("OPENAI_API_KEY", "")
-        api_key = submitted_api_key or stored_api_key
+        if settings.get("mode") == "model_check":
+            api_key = _test_config_value(settings, "MODEL_CHECK_API_KEY", "MODEL_CHECK_API_KEY", "OPENAI_API_KEY")
+            base_url = _test_config_value(settings, "MODEL_CHECK_BASE_URL", "MODEL_CHECK_BASE_URL", "OPENAI_BASE_URL")
+            model_name = _test_config_value(settings, "MODEL_CHECK_MODEL_NAME", "MODEL_CHECK_MODEL_NAME", "OPENAI_MODEL_NAME")
+            proxy_url = _test_config_value(settings, "MODEL_CHECK_PROXY_URL", "MODEL_CHECK_PROXY_URL", "PROXY_URL")
+        else:
+            api_key = _test_config_value(settings, "OPENAI_API_KEY", "OPENAI_API_KEY")
+            base_url = (settings.get("OPENAI_BASE_URL") or "").strip()
+            model_name = (settings.get("OPENAI_MODEL_NAME") or "").strip()
+            proxy_url = (settings.get("PROXY_URL") or "").strip()
 
         client_params = {
             "api_key": api_key,
-            "base_url": settings.get("OPENAI_BASE_URL", ""),
+            "base_url": base_url,
             "timeout": httpx.Timeout(30.0),
         }
 
-        proxy_url = settings.get("PROXY_URL", "")
         if proxy_url:
             client_params["http_client"] = httpx.Client(proxy=proxy_url)
 
-        model_name = settings.get("OPENAI_MODEL_NAME", "")
         client = OpenAI(**client_params)
         messages = [{"role": "user", "content": AI_TEST_PROMPT}]
         api_mode = CHAT_COMPLETIONS_API_MODE

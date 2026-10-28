@@ -192,3 +192,67 @@ def test_item_analysis_dispatcher_supports_keyword_mode_without_ai():
     asyncio.run(run())
     assert saved_records[0]["ai_analysis"]["analysis_source"] == "keyword"
     assert saved_records[0]["ai_analysis"]["is_recommended"] is True
+
+
+def test_dispatcher_skips_mismatched_model_before_any_other_work(monkeypatch):
+    saved_records = []
+    seller_calls = []
+
+    async def fake_check(**kwargs):
+        return {"matched": False, "reason": "实际是 M1 85", "source": "ai"}
+
+    monkeypatch.setattr(
+        "src.services.item_analysis_dispatcher.model_check_service.check_item",
+        fake_check,
+    )
+
+    async def seller_loader(user_id: str):
+        seller_calls.append(user_id)
+        return {}
+
+    async def image_downloader(product_id: str, image_urls: list[str], task_name: str):
+        raise AssertionError("型号不符不应下载图片")
+
+    async def ai_analyzer(record: dict, image_paths: list[str], prompt_text: str):
+        raise AssertionError("型号不符不应调用 AI")
+
+    async def notifier(item_data: dict, reason: str):
+        raise AssertionError("型号不符不应发通知")
+
+    async def saver(record: dict, keyword: str):
+        saved_records.append(record)
+        return True
+
+    async def run():
+        dispatcher = ItemAnalysisDispatcher(
+            concurrency=1,
+            skip_ai_analysis=False,
+            seller_loader=seller_loader,
+            image_downloader=image_downloader,
+            ai_analyzer=ai_analyzer,
+            notifier=notifier,
+            saver=saver,
+        )
+        dispatcher.submit(
+            ItemAnalysisJob(
+                keyword="九号M1 100",
+                task_name="九号捡漏-M1100",
+                decision_mode="ai",
+                analyze_images=False,
+                prompt_text="prompt",
+                keyword_rules=(),
+                final_record={
+                    "商品信息": {"商品ID": "1", "商品标题": "九号M1 85 准新车"},
+                    "卖家信息": {},
+                },
+                seller_id="seller-1",
+                zhima_credit_text=None,
+                registration_duration_text="",
+                model_check=True,
+            )
+        )
+        await dispatcher.join()
+
+    asyncio.run(run())
+    assert saved_records == []
+    assert seller_calls == []
