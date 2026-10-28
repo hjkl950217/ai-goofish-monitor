@@ -57,7 +57,17 @@ from src.services.price_history_service import (
     load_price_snapshots,
     record_market_snapshots,
 )
-from src.services.result_storage_service import load_processed_link_keys
+from src.services.result_storage_service import (
+    load_processed_link_keys,
+    update_result_record,
+)
+from src.services.item_refresh_service import (
+    is_offline_status,
+    parse_detail_price,
+    pick_refresh_targets,
+    record_refresh,
+)
+from src.services.item_detail_service import list_item_images
 from src.services.seller_profile_cache import SellerProfileCache
 from src.services.search_pagination import (
     advance_search_page,
@@ -102,6 +112,156 @@ def _should_analyze_images(task_config: dict) -> bool:
     if isinstance(raw_value, bool):
         return raw_value
     return str(raw_value).strip().lower() not in {"false", "0", "no", "off"}
+
+
+# 调试采集：给 AGM_DEBUG_CAPTURE 指定目录后，把每次搜索接口的请求体、响应体
+# 和筛选完成后的页面快照落盘，用于排查筛选/翻页结果异常。
+DEBUG_CAPTURE_DIR = os.getenv("AGM_DEBUG_CAPTURE", "").strip()
+
+
+def _attach_search_capture(page, dump_dir: str) -> None:
+    counter = {"n": 0}
+
+    async def _dump(response) -> None:
+        counter["n"] += 1
+        index = counter["n"]
+        try:
+            post_data = response.request.post_data or ""
+        except Exception:
+            post_data = ""
+        try:
+            body = await response.body()
+        except Exception as exc:
+            body = f"<body unavailable: {exc}>".encode()
+        with open(
+            os.path.join(dump_dir, f"{index:02d}_req.txt"), "w", encoding="utf-8"
+        ) as f:
+            f.write(f"{response.url}\n\n{post_data}")
+        with open(os.path.join(dump_dir, f"{index:02d}_resp.json"), "wb") as f:
+            f.write(body)
+
+    def _on_response(response) -> None:
+        if is_search_results_response(response):
+            asyncio.create_task(_dump(response))
+
+    page.on("response", _on_response)
+
+
+async def _refresh_tracked_items(
+    *,
+    context,
+    task_config: dict,
+    keyword: str,
+    dispatcher: Optional["ItemAnalysisDispatcher"],
+    prompt_text: str,
+    decision_mode: str,
+    keyword_rules: list,
+) -> None:
+    """回访已入库商品：记录价格/描述变化，下架的直接结束生命周期。
+
+    价格或描述变了才重新跑 AI 分析，没变的只更新复查时间。
+    """
+    if os.getenv("REFRESH_TRACKED_ITEMS", "true").lower() == "false":
+        return
+
+    result_filename = build_result_filename(keyword)
+    targets = await asyncio.to_thread(pick_refresh_targets, result_filename)
+    if not targets:
+        return
+
+    log_time(f"开始复查 {len(targets)} 个已入库商品...")
+    for target in targets:
+        item_id = str(target.get("item_id") or "").strip()
+        if not item_id:
+            continue
+
+        detail_page = await context.new_page()
+        try:
+            async with detail_page.expect_response(
+                lambda r: DETAIL_API_URL_PATTERN in r.url, timeout=25000
+            ) as response_info:
+                await detail_page.goto(
+                    f"https://www.goofish.com/item?id={item_id}",
+                    wait_until="domcontentloaded",
+                    timeout=25000,
+                )
+            response = await response_info.value
+            if not response.ok:
+                continue
+
+            payload = await response.json()
+            ret_text = str(await safe_get(payload, "ret", default=[]))
+            if "FAIL_SYS_USER_VALIDATE" in ret_text:
+                raise RiskControlError("FAIL_SYS_USER_VALIDATE")
+
+            item_do = await safe_get(payload, "data", "itemDO", default={}) or {}
+            status_text = str(item_do.get("itemStatusStr") or "")
+
+            if not item_do or is_offline_status(status_text):
+                await asyncio.to_thread(
+                    record_refresh,
+                    result_filename=result_filename,
+                    item_id=item_id,
+                    offline=True,
+                )
+                log_time(f"  [复查] {item_id} {status_text or '详情为空'}，标记为已结束")
+                continue
+
+            image_infos = item_do.get("imageInfos") or []
+            image_urls = [
+                str(img.get("url"))
+                for img in image_infos
+                if isinstance(img, dict) and img.get("url")
+            ]
+            outcome = await asyncio.to_thread(
+                record_refresh,
+                result_filename=result_filename,
+                item_id=item_id,
+                price=parse_detail_price(item_do),
+                description=str(item_do.get("desc") or "").strip(),
+                image_urls=image_urls,
+            )
+            # 图片只留给 AI 判定要保留的商品，避免一股脑下载
+            if image_urls and bool(target.get("is_recommended")):
+                has_local = await asyncio.to_thread(list_item_images, item_id)
+                if outcome["images_changed"] or not has_local:
+                    await download_all_images(
+                        item_id,
+                        image_urls,
+                        task_config.get("task_name", "default"),
+                    )
+                    log_time(f"  [复查] {item_id} 图片已补齐/更新")
+            if not outcome["changed"]:
+                continue
+            log_time(f"  [复查] {item_id} 价格或描述有变化")
+
+            record = outcome["record"]
+            if dispatcher is None or not record:
+                continue
+            dispatcher.submit(
+                ItemAnalysisJob(
+                    keyword=keyword,
+                    task_name=task_config.get("task_name", ""),
+                    decision_mode=decision_mode,
+                    analyze_images=False,
+                    prompt_text=prompt_text,
+                    keyword_rules=tuple(keyword_rules or []),
+                    final_record=record,
+                    seller_id=None,
+                    zhima_credit_text=None,
+                    registration_duration_text="",
+                    update_existing=True,
+                )
+            )
+        except RiskControlError:
+            raise
+        except PlaywrightTimeoutError:
+            print(f"   [复查] {item_id} 详情请求超时，跳过")
+        except Exception as e:
+            print(f"   [复查] {item_id} 失败: {e}")
+        finally:
+            await detail_page.close()
+            await random_sleep(2, 4)
 
 
 # 搜索页区域弹窗的 class 带 CSS Module hash，线上同时存在多套 hash。
@@ -658,6 +818,7 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                 ai_analyzer=get_ai_analysis,
                 notifier=send_ntfy_notification,
                 saver=save_to_jsonl,
+                updater=update_result_record,
             )
 
             # 增强反检测脚本（模拟真实移动设备）
@@ -685,6 +846,17 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
             """)
 
             page = await context.new_page()
+
+            debug_dir = ""
+            if DEBUG_CAPTURE_DIR:
+                debug_dir = os.path.join(
+                    DEBUG_CAPTURE_DIR,
+                    f"{task_config.get('task_name', 'task')}_"
+                    f"{datetime.now():%Y%m%d_%H%M%S}",
+                )
+                os.makedirs(debug_dir, exist_ok=True)
+                _attach_search_capture(page, debug_dir)
+                print(f"LOG: [DEBUG] 采集搜索请求与响应 -> {debug_dir}")
 
             try:
                 # 步骤 0 - 模拟真实用户：先访问首页（重要的反检测措施）
@@ -967,6 +1139,22 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
 
                 log_time("所有筛选已完成，开始处理商品列表...")
 
+                if debug_dir:
+                    print(f"LOG: [DEBUG] 筛选后页面 URL: {page.url}")
+                    with open(
+                        os.path.join(debug_dir, "page_after_filters.html"),
+                        "w",
+                        encoding="utf-8",
+                    ) as f:
+                        f.write(await page.content())
+                    try:
+                        await page.screenshot(
+                            path=os.path.join(debug_dir, "page_after_filters.png"),
+                            full_page=True,
+                        )
+                    except Exception as e:
+                        print(f"LOG: [DEBUG] 截图失败: {e}")
+
                 current_response = (
                     final_response
                     if final_response and final_response.ok
@@ -1203,6 +1391,16 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                             f"--- 第 {page_num} 页处理完毕，准备翻页。执行一次页面间的长时休息... ---"
                         )
                         await random_sleep(10, 15)
+
+                await _refresh_tracked_items(
+                    context=context,
+                    task_config=task_config,
+                    keyword=keyword,
+                    dispatcher=analysis_dispatcher,
+                    prompt_text=ai_prompt_text,
+                    decision_mode=decision_mode,
+                    keyword_rules=keyword_rules,
+                )
 
             except PlaywrightTimeoutError as e:
                 if _is_login_url(page.url):

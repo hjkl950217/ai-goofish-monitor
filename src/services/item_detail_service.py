@@ -28,7 +28,7 @@ def get_item(item_id: str) -> Optional[Dict[str, Any]]:
     with sqlite_connection() as conn:
         row = conn.execute(
             "SELECT id, result_filename, item_id, raw_json, is_recommended, "
-            "analysis_source, status, crawl_time "
+            "analysis_source, status, crawl_time, price, initial_price, last_checked_at "
             "FROM result_items WHERE item_id = ? ORDER BY id LIMIT 1",
             (str(item_id),),
         ).fetchone()
@@ -44,6 +44,9 @@ def get_item(item_id: str) -> Optional[Dict[str, Any]]:
         "analysis_source": row["analysis_source"],
         "status": row["status"],
         "crawl_time": row["crawl_time"],
+        "price": row["price"],
+        "initial_price": row["initial_price"],
+        "last_checked_at": row["last_checked_at"],
     }
     enriched = enrich_records_with_price_insight([record], row["result_filename"])
     return enriched[0] if enriched else record

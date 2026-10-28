@@ -18,9 +18,14 @@ const skeletonItems = Array.from({ length: 8 }, (_, index) => index)
 </script>
 
 <template>
-  <div :aria-busy="isLoading">
+  <!-- 已有数据时刷新只降透明度，不换成骨架，避免页面高度突变导致滚动位置跳动 -->
+  <div
+    :aria-busy="isLoading"
+    class="transition-opacity duration-200"
+    :class="{ 'opacity-50': isLoading && results.length > 0 }"
+  >
     <div
-      v-if="isLoading"
+      v-if="isLoading && results.length === 0"
       class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
       aria-live="polite"
     >

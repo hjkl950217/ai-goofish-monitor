@@ -115,9 +115,15 @@ export interface ResultItem {
     analysis_source: string | null;
     status: string | null;
     crawl_time: string | null;
+    price?: number | null;
+    initial_price?: number | null;
+    last_checked_at?: string | null;
   };
   _status?: 'active' | 'hidden' | 'expired';
   _effective_hidden?: boolean;
   _hidden_reason?: 'manual' | 'rule' | 'expired' | null;
   _matched_blacklist_keywords?: string[];
+  _initial_price?: number | null;
+  _current_price?: number | null;
+  _last_checked_at?: string | null;
 }

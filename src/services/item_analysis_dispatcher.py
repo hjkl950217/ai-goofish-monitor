@@ -30,6 +30,8 @@ class ItemAnalysisJob:
     seller_id: Optional[str]
     zhima_credit_text: Optional[str]
     registration_duration_text: str
+    # 复查触发的重新分析：保留原卖家信息，落库走上更新而不是插入
+    update_existing: bool = False
 
 
 class ItemAnalysisDispatcher:
@@ -45,6 +47,7 @@ class ItemAnalysisDispatcher:
         ai_analyzer: AIAnalyzer,
         notifier: Notifier,
         saver: Saver,
+        updater: Optional[Saver] = None,
     ) -> None:
         self._semaphore = asyncio.Semaphore(max(1, concurrency))
         self._skip_ai_analysis = skip_ai_analysis
@@ -53,6 +56,7 @@ class ItemAnalysisDispatcher:
         self._ai_analyzer = ai_analyzer
         self._notifier = notifier
         self._saver = saver
+        self._updater = updater or saver
         self._tasks: set[asyncio.Task] = set()
         self.completed_count = 0
 
@@ -72,9 +76,29 @@ class ItemAnalysisDispatcher:
     async def _process_job(self, job: ItemAnalysisJob) -> None:
         record = copy.deepcopy(job.final_record)
         item_data = record.get("商品信息", {}) or {}
-        record["卖家信息"] = await self._load_seller_info(job)
-        record["ai_analysis"] = await self._build_analysis_result(job, record)
-        if await self._saver(record, job.keyword):
+        if job.update_existing:
+            record.setdefault("卖家信息", {})
+        else:
+            record["卖家信息"] = await self._load_seller_info(job)
+
+        # 只有需要喂给模型时才先拉图，分析完不推荐就删掉
+        needs_analysis_images = job.analyze_images and job.decision_mode != "keyword"
+        analysis_images = (
+            await self._download_images(job, record) if needs_analysis_images else []
+        )
+        record["ai_analysis"] = await self._build_analysis_result(
+            job, record, analysis_images
+        )
+
+        # 图片只为留下来的商品保留：推荐了才下载，没推荐就把分析用的临时图删掉
+        recommended = bool((record["ai_analysis"] or {}).get("is_recommended"))
+        if recommended and not analysis_images:
+            await self._download_images(job, record)
+        elif not recommended and analysis_images:
+            self._cleanup_images(analysis_images)
+
+        writer = self._updater if job.update_existing else self._saver
+        if await writer(record, job.keyword):
             self.completed_count += 1
         await self._notify_if_recommended(item_data, record["ai_analysis"])
 
@@ -90,12 +114,17 @@ class ItemAnalysisDispatcher:
         merged["卖家注册时长"] = job.registration_duration_text
         return merged
 
-    async def _build_analysis_result(self, job: ItemAnalysisJob, record: dict) -> dict:
+    async def _build_analysis_result(
+        self,
+        job: ItemAnalysisJob,
+        record: dict,
+        image_paths: list[str],
+    ) -> dict:
         if job.decision_mode == "keyword":
             return self._build_keyword_result(job, record)
         if self._skip_ai_analysis:
             return self._build_skip_ai_result()
-        return await self._run_ai_analysis(job, record)
+        return await self._run_ai_analysis(job, record, image_paths)
 
     def _build_keyword_result(self, job: ItemAnalysisJob, record: dict) -> dict:
         search_text = build_search_text(record)
@@ -120,10 +149,13 @@ class ItemAnalysisDispatcher:
             payload["error"] = error
         return payload
 
-    async def _run_ai_analysis(self, job: ItemAnalysisJob, record: dict) -> dict:
-        image_paths: list[str] = []
+    async def _run_ai_analysis(
+        self,
+        job: ItemAnalysisJob,
+        record: dict,
+        image_paths: list[str],
+    ) -> dict:
         try:
-            image_paths = await self._download_images(job, record)
             if not job.prompt_text:
                 return self._build_ai_error_result("任务未配置AI prompt，跳过分析。")
             ai_result = await self._ai_analyzer(record, image_paths, job.prompt_text)
@@ -140,21 +172,21 @@ class ItemAnalysisDispatcher:
                 f"AI分析异常: {exc}",
                 error=str(exc),
             )
-        finally:
-            self._cleanup_images(image_paths)
 
     async def _download_images(self, job: ItemAnalysisJob, record: dict) -> list[str]:
-        if not job.analyze_images:
-            return []
         item_data = record.get("商品信息", {}) or {}
         image_urls = item_data.get("商品图片列表", [])
         if not image_urls:
             return []
-        return await self._image_downloader(
-            item_data["商品ID"],
-            image_urls,
-            job.task_name,
-        )
+        try:
+            return await self._image_downloader(
+                item_data["商品ID"],
+                image_urls,
+                job.task_name,
+            )
+        except Exception as exc:
+            print(f"   [图片] 下载商品图片失败: {exc}")
+            return []
 
     def _cleanup_images(self, image_paths: list[str]) -> None:
         for img_path in image_paths:

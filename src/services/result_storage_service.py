@@ -131,7 +131,7 @@ def _load_filtered_records_from_conn(
     order_clause = _sort_expression(sort_by, sort_order)
     rows = conn.execute(
         f"""
-        SELECT raw_json, status
+        SELECT raw_json, status, initial_price, price, last_checked_at
         FROM result_items
         WHERE {where_clause}
         ORDER BY {order_clause}
@@ -143,6 +143,9 @@ def _load_filtered_records_from_conn(
     records: list[dict] = []
     for row in rows:
         record = _parse_raw_record(str(row["raw_json"]), status=row["status"])
+        record["_initial_price"] = row["initial_price"]
+        record["_current_price"] = row["price"]
+        record["_last_checked_at"] = row["last_checked_at"]
         decorated = _decorate_record_visibility(record, row["status"], blacklist_keywords)
         if include_hidden or _is_record_visible(decorated):
             records.append(decorated)
@@ -170,9 +173,9 @@ def _save_result_record_sync(record: dict, keyword: str) -> bool:
             """
             INSERT OR IGNORE INTO result_items (
                 result_filename, keyword, task_name, crawl_time, publish_time, price,
-                price_display, item_id, title, link, link_unique_key, seller_nickname,
-                is_recommended, analysis_source, keyword_hit_count, raw_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                initial_price, price_display, item_id, title, link, link_unique_key,
+                seller_nickname, is_recommended, analysis_source, keyword_hit_count, raw_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 build_result_filename(keyword),
@@ -180,6 +183,7 @@ def _save_result_record_sync(record: dict, keyword: str) -> bool:
                 record.get("任务名称", ""),
                 record.get("爬取时间", ""),
                 item.get("发布时间"),
+                parse_price_value(item.get("当前售价")),
                 parse_price_value(item.get("当前售价")),
                 item.get("当前售价"),
                 item.get("商品ID"),
@@ -195,6 +199,57 @@ def _save_result_record_sync(record: dict, keyword: str) -> bool:
         )
         conn.commit()
     return True
+
+
+async def update_result_record(record: dict, keyword: str) -> bool:
+    """复查后的重新分析结果：按 item_id 更新已有行。
+
+    不动 initial_price（保留加入时价格）、crawl_time（保留首次发现时间）
+    和 content_hash（复查流程已写好）。
+    """
+    return await asyncio.to_thread(_update_result_record_sync, record, keyword)
+
+
+def _update_result_record_sync(record: dict, keyword: str) -> bool:
+    bootstrap_sqlite_storage()
+    item = record.get("商品信息", {}) or {}
+    analysis = record.get("ai_analysis", {}) or {}
+    item_id = str(item.get("商品ID") or "").strip()
+    if not item_id:
+        return False
+    try:
+        keyword_hit_count = int(analysis.get("keyword_hit_count", 0))
+    except (TypeError, ValueError):
+        keyword_hit_count = 0
+
+    with sqlite_connection() as conn:
+        cursor = conn.execute(
+            """
+            UPDATE result_items
+            SET keyword = ?, task_name = ?, publish_time = ?, price = ?,
+                price_display = ?, title = ?, seller_nickname = ?,
+                is_recommended = ?, analysis_source = ?, keyword_hit_count = ?,
+                raw_json = ?
+            WHERE result_filename = ? AND item_id = ?
+            """,
+            (
+                record.get("搜索关键字", keyword),
+                record.get("任务名称", ""),
+                item.get("发布时间"),
+                parse_price_value(item.get("当前售价")),
+                item.get("当前售价"),
+                item.get("商品标题"),
+                (record.get("卖家信息", {}) or {}).get("卖家昵称") or item.get("卖家昵称"),
+                1 if analysis.get("is_recommended") else 0,
+                analysis.get("analysis_source"),
+                keyword_hit_count,
+                json.dumps(record, ensure_ascii=False),
+                build_result_filename(keyword),
+                item_id,
+            ),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
 
 
 def load_processed_link_keys(keyword: str) -> set[str]:

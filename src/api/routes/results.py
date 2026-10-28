@@ -88,7 +88,7 @@ async def get_result_file_content(
     ai_recommended_only: bool = Query(False),
     keyword_recommended_only: bool = Query(False),
     include_hidden: bool = Query(False),
-    sort_by: str = Query("crawl_time"),
+    sort_by: str = Query("publish_time"),
     sort_order: str = Query("desc"),
 ):
     """读取指定的 .jsonl 文件内容，支持分页、筛选和排序"""

@@ -199,9 +199,9 @@ async def download_all_images(product_id, image_urls, task_name="default", concu
 def cleanup_task_images(task_name):
     """清理指定任务的图片目录。
 
-    设置 KEEP_TASK_IMAGES=true 时保留图片，便于后续重新分析直接复用（下载逻辑会跳过已存在文件）。
+    默认保留图片：详情页要展示已采集的图片。设置 KEEP_TASK_IMAGES=false 才删。
     """
-    if os.getenv("KEEP_TASK_IMAGES", "false").strip().lower() in ("1", "true", "yes", "on"):
+    if os.getenv("KEEP_TASK_IMAGES", "true").strip().lower() not in ("0", "false", "no", "off"):
         safe_print(f"   [清理] KEEP_TASK_IMAGES 已开启，保留任务 '{task_name}' 的图片")
         return
     task_image_dir = os.path.join(IMAGE_SAVE_DIR, f"{TASK_IMAGE_DIR_PREFIX}{task_name}")
@@ -241,6 +241,14 @@ def encode_image_to_base64(image_path):
     except Exception as e:
         safe_print(f"编码图片时出错: {e}")
         return None
+
+
+FORMAT_RETRY_NOTE = (
+    "上一次输出未通过格式校验。请重新输出：只返回一个 JSON 对象，不要任何解释文字。"
+    "必须包含 prompt_version、is_recommended（布尔值）、reason、risk_tags（数组）、"
+    "criteria_analysis（非空对象，且包含 seller_type）。"
+    "务必保证 JSON 完整闭合，不要被截断。"
+)
 
 
 def validate_ai_response_format(parsed_response):
@@ -410,7 +418,9 @@ async def get_ai_analysis(product_data, image_paths=None, prompt_text=""):
         include_images=bool(image_data_urls),
     )
     user_content = build_user_message_content(combined_text_prompt, image_data_urls)
-    messages = [{"role": "user", "content": user_content}]
+    base_messages = [{"role": "user", "content": user_content}]
+    messages = base_messages
+    retry_note = ""
 
     # 保存最终传输内容到日志文件
     try:
@@ -455,12 +465,16 @@ async def get_ai_analysis(product_data, image_paths=None, prompt_text=""):
 
             from src.config import get_ai_request_params
 
+            # 格式类失败后带上一次的问题再问，光重试同样的 prompt 容易重复同样的错误
+            if retry_note:
+                messages = base_messages + [{"role": "user", "content": retry_note}]
+
             request_params = build_ai_request_params(
                 api_mode,
                 model=MODEL_NAME,
                 messages=messages,
                 temperature=current_temperature,
-                max_output_tokens=4000,
+                max_output_tokens=8000,
                 enable_json_output=use_response_format,
             )
             if not use_temperature:
@@ -502,12 +516,14 @@ async def get_ai_analysis(product_data, image_paths=None, prompt_text=""):
                         await _repair_value_score(product_details_json, parsed_response)
                     return parsed_response
                 safe_print(f"   [AI分析] 第{attempt + 1}次尝试格式验证失败")
+                retry_note = FORMAT_RETRY_NOTE
                 if attempt < max_retries - 1:
                     safe_print(f"   [AI分析] 准备第{attempt + 2}次重试...")
                     continue
                 raise ValueError("AI响应格式缺少必需字段或字段类型不正确。")
             except json.JSONDecodeError as e:
                 safe_print(f"   [AI分析] 第{attempt + 1}次尝试JSON解析失败: {e}")
+                retry_note = FORMAT_RETRY_NOTE
                 if attempt < max_retries - 1:
                     safe_print(f"   [AI分析] 准备第{attempt + 2}次重试...")
                     continue

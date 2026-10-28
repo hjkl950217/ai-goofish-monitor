@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ResultInsights } from '@/types/result.d.ts'
 import PriceTrendChart from './PriceTrendChart.vue'
-import { formatDateTime } from '@/i18n'
+import { formatLocalDateTime } from '@/i18n'
 
 const props = defineProps<{
   insights: ResultInsights | null
@@ -39,10 +39,7 @@ const summaryCards = computed(() => {
 const latestSnapshotText = computed(() => {
   if (!props.insights?.latest_snapshot_at) return t('results.insights.noSnapshot')
   return t('results.insights.latestSnapshot', {
-    time: formatDateTime(props.insights.latest_snapshot_at, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }),
+    time: formatLocalDateTime(props.insights.latest_snapshot_at),
   })
 })
 </script>

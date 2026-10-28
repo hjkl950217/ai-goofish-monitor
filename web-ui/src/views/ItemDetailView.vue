@@ -5,8 +5,10 @@ import { useI18n } from 'vue-i18n'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Loader2, ArrowLeft, ExternalLink, ImageOff, Package } from 'lucide-vue-next'
+import { Loader2, ArrowLeft, ExternalLink, ImageOff, Package, TrendingDown, TrendingUp } from 'lucide-vue-next'
 import type { ResultItem } from '@/types/result.d.ts'
+import { criteriaLabel, criteriaStatusLabel, criteriaStatusTone } from '@/constants/criteria'
+import { formatLocalDateTime } from '@/i18n'
 
 interface ItemImage {
   name: string
@@ -32,6 +34,21 @@ const info = computed(() => item.value?.商品信息 ?? ({} as ResultItem['商�
 const seller = computed(() => item.value?.卖家信息 ?? {})
 const ai = computed(() => item.value?.ai_analysis)
 const priceInsight = computed(() => item.value?.price_insight)
+
+const isExpired = computed(() => item.value?._status === 'expired' || item.value?._meta?.status === 'expired')
+const initialPrice = computed(() => item.value?._meta?.initial_price ?? item.value?._initial_price ?? null)
+const currentPrice = computed(() => item.value?._meta?.price ?? item.value?._current_price ?? null)
+const priceDelta = computed(() => {
+  const first = initialPrice.value
+  const latest = currentPrice.value
+  if (typeof first !== 'number' || typeof latest !== 'number') return 0
+  return Math.round((latest - first) * 100) / 100
+})
+const deltaTone = computed(() => (priceDelta.value < 0 ? 'text-emerald-600' : 'text-rose-600'))
+const formattedDelta = computed(() => {
+  const abs = Math.abs(priceDelta.value)
+  return Number.isInteger(abs) ? `¥${abs}` : `¥${abs.toFixed(2)}`
+})
 
 const statusTone = computed(() => {
   const status = String(info.value?.商品状态 ?? '')
@@ -194,8 +211,8 @@ watch(itemId, load)
               class="rounded-lg border border-slate-100 bg-slate-50/60 p-3"
             >
               <div class="flex items-center justify-between gap-2">
-                <span class="text-xs font-semibold text-slate-700">{{ entry.key }}</span>
-                <Badge v-if="entry.status" class="text-[10px]" variant="secondary">{{ entry.status }}</Badge>
+                <span class="text-xs font-semibold text-slate-700">{{ criteriaLabel(entry.key) }}</span>
+                <Badge v-if="entry.status" class="text-[10px] border" :class="criteriaStatusTone(entry.status)" variant="secondary">{{ criteriaStatusLabel(entry.status) }}</Badge>
               </div>
               <p v-if="entry.comment" class="mt-1.5 text-xs leading-relaxed text-slate-600">{{ entry.comment }}</p>
               <p v-if="entry.evidence" class="mt-1 text-[11px] leading-relaxed text-slate-400">{{ entry.evidence }}</p>
@@ -211,10 +228,15 @@ watch(itemId, load)
           <CardContent class="space-y-3 pt-4">
             <h1 class="text-base font-semibold leading-snug text-slate-800">{{ info.商品标题 }}</h1>
             <div class="flex items-center gap-2">
-              <span class="text-2xl font-bold text-rose-600">{{ formatPrice(info.当前售价) }}</span>
+              <span class="text-2xl font-bold" :class="isExpired ? 'text-slate-400' : 'text-rose-600'">{{ formatPrice(info.当前售价) }}</span>
               <span v-if="info['商品原价'] && info['商品原价'] !== '暂无'" class="text-xs text-slate-400 line-through">
                 {{ info['商品原价'] }}
               </span>
+            </div>
+            <div v-if="priceDelta !== 0" class="flex items-center gap-1 text-xs">
+              <component :is="priceDelta < 0 ? TrendingDown : TrendingUp" class="w-4 h-4" :class="deltaTone" />
+              <span class="text-slate-400">{{ t('results.card.priceSinceAdded') }}</span>
+              <span class="font-semibold" :class="deltaTone">{{ priceDelta < 0 ? '-' : '+' }}{{ formattedDelta }}</span>
             </div>
             <div class="flex flex-wrap gap-1.5">
               <Badge v-if="info.商品状态" :class="statusTone">{{ info.商品状态 }}</Badge>
@@ -224,7 +246,7 @@ watch(itemId, load)
             <dl class="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-slate-100 pt-3 text-xs">
               <div class="flex justify-between gap-2">
                 <dt class="text-slate-400">{{ t('results.card.publishTime') }}</dt>
-                <dd class="truncate font-medium text-slate-700">{{ info.发布时间 || '—' }}</dd>
+                <dd class="truncate font-medium text-slate-700">{{ formatLocalDateTime(info.发布时间) }}</dd>
               </div>
               <div class="flex justify-between gap-2">
                 <dt class="text-slate-400">{{ t('results.card.shipsFrom') }}</dt>
@@ -276,7 +298,7 @@ watch(itemId, load)
               </Badge>
             </div>
             <p class="text-[11px] text-slate-400">
-              {{ t('itemDetail.analyzedAt') }}: {{ ai.backfilled_at || item.爬取时间 }}
+              {{ t('itemDetail.analyzedAt') }}: {{ formatLocalDateTime(ai.backfilled_at || item?.爬取时间) }}
             </p>
           </CardContent>
         </Card>
