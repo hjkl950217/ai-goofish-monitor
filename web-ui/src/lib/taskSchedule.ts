@@ -1,4 +1,4 @@
-import { t } from '@/i18n'
+import { formatLocalDateTime, t, toStationDate } from '@/i18n'
 
 const SECOND_MS = 1000
 const MINUTE_MS = 60 * SECOND_MS
@@ -7,18 +7,14 @@ const DAY_MS = 24 * HOUR_MS
 
 function parseDate(value: string | null | undefined): Date | null {
   if (!value) return null
-  const date = new Date(value)
+  const date = toStationDate(value)
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-function padNumber(value: number): string {
-  return String(value).padStart(2, '0')
-}
-
 export function formatNextRunAbsolute(value: string | null | undefined): string {
-  const date = parseDate(value)
-  if (!date) return t('time.scheduled')
-  return `${padNumber(date.getMonth() + 1)}-${padNumber(date.getDate())} ${padNumber(date.getHours())}:${padNumber(date.getMinutes())}:${padNumber(date.getSeconds())}`
+  const text = formatLocalDateTime(value)
+  if (text === '—') return t('time.scheduled')
+  return text.slice(5)
 }
 
 export function formatCountdown(

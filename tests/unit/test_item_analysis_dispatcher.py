@@ -78,6 +78,69 @@ def test_item_analysis_dispatcher_uses_bounded_concurrency():
     assert saved_records[0][1]["卖家信息"]["卖家ID"].startswith("seller-")
 
 
+def test_images_downloaded_only_for_recommended_items():
+    """图片只为留下来的商品下载：不推荐的连图片请求都不发。"""
+    downloaded = []
+
+    async def seller_loader(user_id: str):
+        return {}
+
+    async def image_downloader(product_id: str, image_urls: list[str], task_name: str):
+        downloaded.append(product_id)
+        return []
+
+    async def ai_analyzer(record: dict, image_paths: list[str], prompt_text: str):
+        product_id = record["商品信息"]["商品ID"]
+        return {
+            "analysis_source": "ai",
+            "is_recommended": product_id == "keep",
+            "reason": "test",
+            "keyword_hit_count": 0,
+        }
+
+    async def notifier(item_data: dict, reason: str):
+        return None
+
+    async def saver(record: dict, keyword: str):
+        return True
+
+    async def run():
+        dispatcher = ItemAnalysisDispatcher(
+            concurrency=1,
+            skip_ai_analysis=False,
+            seller_loader=seller_loader,
+            image_downloader=image_downloader,
+            ai_analyzer=ai_analyzer,
+            notifier=notifier,
+            saver=saver,
+        )
+        for product_id in ("keep", "drop"):
+            dispatcher.submit(
+                ItemAnalysisJob(
+                    keyword="demo",
+                    task_name="Demo",
+                    decision_mode="ai",
+                    analyze_images=False,
+                    prompt_text="prompt",
+                    keyword_rules=(),
+                    final_record={
+                        "商品信息": {
+                            "商品ID": product_id,
+                            "商品图片列表": ["http://img/1.jpg"],
+                        },
+                        "卖家信息": {},
+                    },
+                    seller_id=None,
+                    zhima_credit_text=None,
+                    registration_duration_text="",
+                )
+            )
+        await dispatcher.join()
+
+    asyncio.run(run())
+    assert downloaded == ["keep"]
+
+
 def test_item_analysis_dispatcher_supports_keyword_mode_without_ai():
     saved_records = []
 

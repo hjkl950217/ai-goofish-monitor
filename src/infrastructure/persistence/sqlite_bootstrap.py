@@ -197,9 +197,10 @@ def _insert_result_record(conn, record: dict, *, keyword: str, filename: str) ->
         """
         INSERT OR IGNORE INTO result_items (
             result_filename, keyword, task_name, crawl_time, publish_time, price,
-            price_display, item_id, title, link, link_unique_key, seller_nickname,
-            is_recommended, analysis_source, keyword_hit_count, raw_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            initial_price, price_display, item_id, title, link, link_unique_key,
+            seller_nickname, is_recommended, analysis_source, keyword_hit_count,
+            raw_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             result_filename,
@@ -207,6 +208,7 @@ def _insert_result_record(conn, record: dict, *, keyword: str, filename: str) ->
             record.get("任务名称", ""),
             record.get("爬取时间", ""),
             item.get("发布时间"),
+            _parse_price(item.get("当前售价")),
             _parse_price(item.get("当前售价")),
             item.get("当前售价"),
             item.get("商品ID"),

@@ -27,7 +27,7 @@ export function useResults() {
   const readyDelayMs = 200
   let readyTimer: ReturnType<typeof setTimeout> | null = null
   
-  const STORAGE_KEY_FILTERS = 'resultFilters'
+  const STORAGE_KEY_FILTERS = 'resultFiltersV2'
 
   function loadPersistedFilters(): Required<Omit<GetResultContentParams, 'page' | 'limit'>> {
     const defaults: Required<Omit<GetResultContentParams, 'page' | 'limit'>> = {
@@ -35,7 +35,7 @@ export function useResults() {
       ai_recommended_only: false,
       keyword_recommended_only: false,
       include_hidden: false,
-      sort_by: 'crawl_time',
+      sort_by: 'publish_time',
       sort_order: 'desc',
     }
     try {

@@ -151,7 +151,36 @@ def init_schema(conn: sqlite3.Connection) -> None:
     for statement in SCHEMA_STATEMENTS:
         conn.execute(statement)
     _migrate_result_items_status(conn)
+    _migrate_result_items_refresh(conn)
     conn.commit()
+
+
+def _migrate_result_items_refresh(conn: sqlite3.Connection) -> None:
+    """为 result_items 表添加复查列（仅执行一次）。
+
+    price 存最新价，initial_price 存加入时的价格，UI 用它算涨跌。
+    content_hash 是价格 + 描述的指纹，用来判断要不要重新分析。
+    """
+    row = conn.execute(
+        "SELECT value FROM app_metadata WHERE key = 'migration:result_items_refresh'"
+    ).fetchone()
+    if row is not None:
+        return
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(result_items)").fetchall()]
+    if "initial_price" not in cols:
+        conn.execute("ALTER TABLE result_items ADD COLUMN initial_price REAL")
+        conn.execute("UPDATE result_items SET initial_price = price")
+    if "last_checked_at" not in cols:
+        conn.execute("ALTER TABLE result_items ADD COLUMN last_checked_at TEXT")
+    if "content_hash" not in cols:
+        conn.execute("ALTER TABLE result_items ADD COLUMN content_hash TEXT")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_results_refresh_queue"
+        " ON result_items(result_filename, status, last_checked_at)"
+    )
+    conn.execute(
+        "INSERT OR REPLACE INTO app_metadata(key, value) VALUES ('migration:result_items_refresh', 'done')"
+    )
 
 
 def _migrate_result_items_status(conn: sqlite3.Connection) -> None:
