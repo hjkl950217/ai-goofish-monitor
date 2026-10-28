@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.gzip import GZipMiddleware
 
 from src.api.routes import (
     dashboard,
@@ -17,6 +18,9 @@ from src.api.routes import (
     login_state,
     websocket,
     accounts,
+    favorites,
+    reanalyze,
+    items,
 )
 from src.api.dependencies import (
     set_process_service,
@@ -112,6 +116,12 @@ app.include_router(results.router)
 app.include_router(login_state.router)
 app.include_router(websocket.router)
 app.include_router(accounts.router)
+app.include_router(favorites.router)
+app.include_router(reanalyze.router)
+app.include_router(items.router)
+
+# 静态资源均为 Vite 哈希产物，可缓存 - 注册 GZip 压缩以加快页面加载
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # 挂载静态文件
 # 旧的静态文件目录（用于截图等）
@@ -120,8 +130,18 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # 挂载 Vue 3 前端构建产物
 # 注意：需要在所有 API 路由之后挂载，以避免覆盖 API 路由
 import os
+
+class HashedStaticFiles(StaticFiles):
+    """dist/assets 下均为带内容哈希的文件名，可安全长缓存（immutable）。"""
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code == 200:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
 if os.path.exists("dist"):
-    app.mount("/assets", StaticFiles(directory="dist/assets"), name="assets")
+    app.mount("/assets", HashedStaticFiles(directory="dist/assets"), name="assets")
 
 
 # 健康检查端点
@@ -156,7 +176,7 @@ from fastapi.responses import JSONResponse
 async def read_root(request: Request):
     """提供 Vue 3 SPA 的主页面"""
     if os.path.exists("dist/index.html"):
-        return FileResponse("dist/index.html")
+        return FileResponse("dist/index.html", headers={"Cache-Control": "no-cache"})
     else:
         return JSONResponse(
             status_code=500,
@@ -177,7 +197,7 @@ async def serve_spa(request: Request, full_path: str):
 
     # 其他所有路径都返回 index.html，让前端路由处理
     if os.path.exists("dist/index.html"):
-        return FileResponse("dist/index.html")
+        return FileResponse("dist/index.html", headers={"Cache-Control": "no-cache"})
     else:
         return JSONResponse(
             status_code=500,

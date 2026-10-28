@@ -150,6 +150,7 @@ async function handleSaveBlacklistRules() {
       v-model:sortOrder="filters.sort_order"
       :is-loading="isLoading"
       @refresh="refreshResults"
+      @reanalyze-finished="refreshResults"
       @manage-blacklist="openBlacklistDialog"
       @export="handleExportResults"
       @delete="openDeleteDialog"

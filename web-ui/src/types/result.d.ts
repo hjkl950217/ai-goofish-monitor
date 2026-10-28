@@ -13,14 +13,19 @@ export interface ProductInfo {
   "商品ID": string;
   "商品图片列表"?: string[];
   "商品主图链接"?: string;
+  "商品描述"?: string;
   "浏览量"?: string | number;
+  "商品状态"?: string;
+  "商品已售数"?: string | number;
+  "商品收藏数"?: string | number;
+  "卖家累计已售数"?: string | number;
 }
 
 export interface SellerInfo {
   "卖家昵称"?: string;
   "卖家头像链接"?: string;
   "卖家个性签名"?: string;
-  "卖家在售/已售商品数"?: string;
+  "卖家在售/已售商品数"?: string | number;
   "卖家收到的评价总数"?: string;
   "卖家信用等级"?: string;
   "买家信用等级"?: string;
@@ -45,6 +50,7 @@ export interface AiAnalysis {
   risk_tags?: string[];
   criteria_analysis?: Record<string, any>;
   matched_keywords?: string[];
+  backfilled_at?: string;
   error?: string;
 }
 
@@ -101,6 +107,15 @@ export interface ResultItem {
   "卖家信息": SellerInfo;
   ai_analysis: AiAnalysis;
   price_insight?: PriceInsight;
+  _meta?: {
+    id: number;
+    result_filename: string;
+    item_id: string;
+    is_recommended: boolean;
+    analysis_source: string | null;
+    status: string | null;
+    crawl_time: string | null;
+  };
   _status?: 'active' | 'hidden' | 'expired';
   _effective_hidden?: boolean;
   _hidden_reason?: 'manual' | 'rule' | 'expired' | null;

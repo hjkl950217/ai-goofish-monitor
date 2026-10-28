@@ -11,7 +11,11 @@ src/__pycache__/
 dist/
 state/
 config.json
-prompts/
+prompts/*
+!prompts/base_prompt.txt
+!prompts/macbook_criteria.txt
+!prompts/example_criteria.txt
 .serena/
 price_history/
 data/
+.venv/

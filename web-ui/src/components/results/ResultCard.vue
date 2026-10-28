@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import type { ResultItem } from '@/types/result.d.ts'
 import {
   Card,
@@ -10,7 +11,9 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import Badge from '@/components/ui/badge/Badge.vue'
-import { ExternalLink, TrendingUp, TrendingDown, Info, User, Clock, CheckCircle2, XCircle, AlertCircle, EyeOff, Eye } from 'lucide-vue-next'
+import { toast } from '@/components/ui/toast/use-toast'
+import { useFavorites } from '@/composables/useFavorites'
+import { ExternalLink, TrendingUp, TrendingDown, Info, User, Clock, CheckCircle2, XCircle, AlertCircle, EyeOff, Eye, MapPin, CalendarDays, Heart, Tag } from 'lucide-vue-next'
 import { formatDateTime } from '@/i18n'
 
 interface Props {
@@ -24,7 +27,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const info = props.item.商品信息
-const seller = props.item.卖家信息
+const seller = props.item.卖家信息 ?? {}
 const ai = props.item.ai_analysis
 const priceInsight = props.item.price_insight
 
@@ -39,7 +42,9 @@ const imageUrl = info.商品图片列表?.[0] || info.商品主图链接 || ''
 const crawlTime = props.item.爬取时间
   ? formatDateTime(props.item.爬取时间, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
   : t('common.unknown')
-const matchScore = ai?.value_score ?? 0
+const rawMatchScore = ai?.value_score
+const hasMatchScore = typeof rawMatchScore === 'number' && Number.isFinite(rawMatchScore)
+const matchScore = hasMatchScore ? Math.max(0, Math.min(100, rawMatchScore)) : 0
 const isHidden = computed(() => props.item._effective_hidden === true || props.item._status === 'hidden')
 const isRuleHidden = computed(() => props.item._hidden_reason === 'rule')
 const canToggleBlock = computed(() => props.item._hidden_reason !== 'rule' && props.item._hidden_reason !== 'expired')
@@ -50,6 +55,139 @@ const hiddenLabel = computed(() => {
 })
 
 const expanded = ref(false)
+
+interface SellerBadge {
+  label: string
+  value: string
+  tone: string
+}
+
+const cleanText = (value?: string) => (value ?? '').trim()
+
+const hasValue = (value?: string | number | null) => {
+  const text = String(value ?? '').trim()
+  return text !== '' && text !== '-' && text !== '暂无' && text !== 'N/A' && text !== '0'
+}
+
+const publishTime = cleanText(info.发布时间).replace(/^\d{4}-/, '')
+const shipRegion = cleanText(info.发货地区)
+const viewCount = info.浏览量
+const wantCount = info['“想要”人数']
+const productTags = Array.isArray(info.商品标签) ? info.商品标签 : []
+
+const listingStats = computed(() => {
+  const list = Array.isArray(seller['卖家发布的商品列表']) ? seller['卖家发布的商品列表'] : []
+  let onSale = 0
+  let sold = 0
+  for (const entry of list) {
+    if (entry?.商品状态 === '在售') onSale += 1
+    else if (entry?.商品状态 === '已售') sold += 1
+  }
+  const total = Number.parseInt(String(seller['卖家在售/已售商品数'] ?? ''), 10)
+  return { onSale, sold, total: Number.isNaN(total) ? onSale + sold : total }
+})
+
+const shortCredit = (value: string) => value.replace(/^(卖家|买家)?信用/, '') || value
+
+const creditTone = (value: string) => {
+  if (/(较差|很差|差评)/.test(value)) return 'text-rose-600'
+  if (/(中等|一般)/.test(value)) return 'text-amber-600'
+  if (/(极好|优秀|良好)/.test(value)) return 'text-emerald-600'
+  return 'text-slate-600'
+}
+
+const rateTone = (rate: string) => {
+  const value = Number.parseFloat(rate)
+  if (Number.isNaN(value)) return 'text-slate-600'
+  if (value >= 99) return 'text-emerald-600'
+  if (value >= 90) return 'text-amber-600'
+  return 'text-rose-600'
+}
+
+const sellerBadges = computed<SellerBadge[]>(() => {
+  const badges: SellerBadge[] = []
+  const stats = listingStats.value
+  if (stats.onSale || stats.sold) {
+    const base = `${stats.onSale} / ${stats.sold}`
+    badges.push({
+      label: t('results.card.sellerListings'),
+      value: stats.total > stats.onSale + stats.sold
+        ? t('results.card.listingsTotal', { value: base, total: stats.total })
+        : base,
+      tone: stats.sold > 0 ? 'text-emerald-600' : 'text-slate-600',
+    })
+  }
+  const credit = cleanText(seller['卖家信用等级'])
+  badges.push({
+    label: t('results.card.sellerCredit'),
+    value: hasValue(credit) ? shortCredit(credit) : t('results.card.noData'),
+    tone: hasValue(credit) ? creditTone(credit) : 'text-slate-400',
+  })
+  const zhima = cleanText(seller['卖家芝麻信用'])
+  badges.push({
+    label: t('results.card.zhimaCredit'),
+    value: hasValue(zhima) ? shortCredit(zhima) : t('results.card.noData'),
+    tone: hasValue(zhima) ? creditTone(zhima) : 'text-slate-400',
+  })
+  const buyerCredit = cleanText(seller['买家信用等级'])
+  badges.push({
+    label: t('results.card.buyerCredit'),
+    value: hasValue(buyerCredit) ? shortCredit(buyerCredit) : t('results.card.noData'),
+    tone: hasValue(buyerCredit) ? creditTone(buyerCredit) : 'text-slate-400',
+  })
+  const member = cleanText(seller['卖家注册时长'])
+  badges.push({
+    label: t('results.card.memberAge'),
+    value: hasValue(member) ? member.replace(/^来闲鱼/, '') : t('results.card.noData'),
+    tone: hasValue(member) ? 'text-slate-600' : 'text-slate-400',
+  })
+  const rate = cleanText(seller['作为卖家的好评率'])
+  const count = cleanText(seller['作为卖家的好评数'])
+  if (hasValue(rate) && count && count !== '0/0') {
+    badges.push({
+      label: t('results.card.sellerRating'),
+      value: `${count} · ${rate}`,
+      tone: rateTone(rate),
+    })
+  } else {
+    badges.push({
+      label: t('results.card.sellerRating'),
+      value: t('results.card.noData'),
+      tone: 'text-slate-400',
+    })
+  }
+  return badges
+})
+
+const router = useRouter()
+const detailPath = computed(() => `/results/item/${encodeURIComponent(info.商品ID)}`)
+function openDetail(event: MouseEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  void router.push(detailPath.value)
+}
+
+const fav = useFavorites()
+const favOn = computed(() => fav.isFavorite(info.商品ID))
+const favPending = computed(() => fav.isPending(info.商品ID))
+
+onMounted(() => {
+  fav.load().catch(() => {})
+})
+
+async function onToggleFavorite() {
+  if (favPending.value) return
+  try {
+    await fav.load()
+    await fav.toggle(props.item)
+  } catch (error) {
+    toast({
+      title: t('results.card.favoriteFailed'),
+      description: error instanceof Error ? error.message : String(error),
+      variant: 'destructive',
+    })
+  }
+}
 </script>
 
 <template>
@@ -61,8 +199,9 @@ const expanded = ref(false)
         v-else
         :src="imageUrl"
         :alt="info.商品标题"
-        class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+        class="h-full w-full cursor-zoom-in object-cover transition-transform duration-500 group-hover:scale-110"
         loading="lazy"
+        @click="openDetail"
       />
       <!-- Hidden overlay -->
       <div v-if="isHidden" class="absolute inset-0 bg-black/30 flex items-center justify-center">
@@ -78,6 +217,17 @@ const expanded = ref(false)
         </Badge>
       </div>
       <div class="absolute top-3 right-3 flex gap-1.5">
+        <button
+          type="button"
+          :disabled="favPending"
+          :aria-pressed="favOn"
+          :title="favOn ? t('results.card.favorited') : t('results.card.favorite')"
+          @click.stop="onToggleFavorite"
+          class="flex rounded-full p-1.5 backdrop-blur-md border shadow-sm transition-colors disabled:opacity-60 disabled:cursor-wait"
+          :class="favOn ? 'bg-rose-500/90 border-white/50 text-white' : 'bg-white/30 border-white/40 text-white hover:bg-white/50'"
+        >
+          <Heart class="w-4 h-4" :class="favOn ? 'fill-white' : ''" />
+        </button>
         <button
           v-if="canToggleBlock"
           type="button"
@@ -103,18 +253,58 @@ const expanded = ref(false)
     <CardHeader class="p-4 pb-2">
       <div class="flex justify-between items-start gap-3">
         <CardTitle class="text-base font-semibold text-slate-800 line-clamp-2 leading-snug flex-grow h-10">
-          <a :href="info.商品链接" target="_blank" rel="noopener noreferrer" class="hover:text-primary transition-colors">
+          <a
+            href="#"
+            class="cursor-pointer hover:text-primary transition-colors"
+            :title="t('itemDetail.openLocal')"
+            @click="openDetail"
+          >
             {{ info.商品标题 }}
           </a>
         </CardTitle>
       </div>
       <div class="flex items-baseline gap-1 mt-2">
         <span class="text-2xl font-bold text-rose-600 tracking-tight">{{ info.当前售价 }}</span>
-        <span v-if="info['商品原价']" class="text-xs text-slate-400 line-through mb-1">{{ info['商品原价'] }}</span>
+        <span v-if="hasValue(info['商品原价'])" class="text-xs text-slate-400 line-through mb-1">{{ info['商品原价'] }}</span>
       </div>
     </CardHeader>
 
     <CardContent class="p-4 pt-2 flex-grow">
+      <!-- Product Facts -->
+      <div class="rounded-xl bg-slate-50/60 border border-slate-100/70 p-2.5 mb-3">
+        <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-slate-600">
+          <span class="flex items-center gap-1.5 min-w-0">
+            <CalendarDays class="w-3.5 h-3.5 shrink-0 text-slate-400" />
+            <span class="shrink-0 text-slate-400">{{ t('results.card.publishTime') }}</span>
+            <span class="truncate font-semibold">{{ publishTime || '—' }}</span>
+          </span>
+          <span class="flex items-center gap-1.5 min-w-0">
+            <MapPin class="w-3.5 h-3.5 shrink-0 text-slate-400" />
+            <span class="shrink-0 text-slate-400">{{ t('results.card.shipsFrom') }}</span>
+            <span class="truncate font-semibold">{{ hasValue(shipRegion) ? shipRegion : '—' }}</span>
+          </span>
+          <span class="flex items-center gap-1.5 min-w-0">
+            <Eye class="w-3.5 h-3.5 shrink-0 text-slate-400" />
+            <span class="shrink-0 text-slate-400">{{ t('results.card.views') }}</span>
+            <span class="truncate font-semibold">{{ hasValue(viewCount) ? viewCount : '—' }}</span>
+          </span>
+          <span class="flex items-center gap-1.5 min-w-0">
+            <Heart class="w-3.5 h-3.5 shrink-0 text-rose-400" />
+            <span class="shrink-0 text-slate-400">{{ t('results.card.wanted') }}</span>
+            <span class="truncate font-semibold">{{ hasValue(wantCount) ? wantCount : '—' }}</span>
+          </span>
+        </div>
+        <div v-if="productTags.length" class="mt-2 flex flex-wrap gap-1">
+          <span
+            v-for="tag in productTags"
+            :key="tag"
+            class="inline-flex items-center gap-1 rounded-md border border-slate-200/70 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600"
+          >
+            <Tag class="w-3 h-3 text-slate-400" />{{ tag }}
+          </span>
+        </div>
+      </div>
+
       <!-- AI Insight Section -->
       <div class="rounded-xl p-3 border border-slate-100" :class="recommendationStatus.bg">
         <div class="flex items-center justify-between mb-2">
@@ -124,7 +314,7 @@ const expanded = ref(false)
           </div>
           <div class="flex items-center gap-1">
              <span class="text-[10px] font-medium uppercase tracking-wider text-slate-400">AI Match</span>
-             <span class="text-sm font-black" :class="recommendationStatus.text">{{ matchScore }}%</span>
+             <span class="text-sm font-black" :class="recommendationStatus.text">{{ hasMatchScore ? `${matchScore}%` : '—' }}</span>
           </div>
         </div>
         
@@ -132,7 +322,7 @@ const expanded = ref(false)
           <div 
             class="h-full transition-all duration-1000 ease-out rounded-full" 
             :class="recommendationStatus.color"
-            :style="{ width: `${matchScore}%` }"
+            :style="{ width: hasMatchScore ? `${matchScore}%` : '0%' }"
           ></div>
         </div>
 
@@ -169,6 +359,18 @@ const expanded = ref(false)
             {{ priceInsight.min_price ? `¥${priceInsight.min_price}` : '—' }}
           </div>
         </div>
+      </div>
+      <!-- Seller Reputation -->
+      <div v-if="sellerBadges.length" class="mt-3 flex flex-wrap gap-1.5">
+        <span
+          v-for="badge in sellerBadges"
+          :key="badge.label"
+          :title="`${badge.label}: ${badge.value}`"
+          class="inline-flex max-w-full items-baseline gap-1 rounded-full border border-slate-100 bg-white/70 px-2 py-0.5 text-[10px]"
+        >
+          <span class="shrink-0 text-slate-400">{{ badge.label }}</span>
+          <span class="truncate font-semibold" :class="badge.tone">{{ badge.value }}</span>
+        </span>
       </div>
     </CardContent>
 
