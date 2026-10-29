@@ -125,13 +125,13 @@ def parse_detail(detail: dict) -> dict:
 
     not_found = any(k in ret_text for k in ("ITEM_NOT_FOUND", "ITEM_DELETED", "NOT_FOUND", "INVALID"))
     fields = {
-        "商品状态": str(item_do.get("itemStatusStr") or "").strip(),
-        "商品描述": str(item_do.get("desc") or "").strip(),
-        "浏览量": item_do.get("browseCnt"),
-        "“想要”人数": item_do.get("wantCnt"),
-        "商品已售数": item_do.get("soldCnt"),
-        "商品收藏数": item_do.get("collectCnt"),
-        "卖家累计已售数": seller_do.get("hasSoldNumInteger"),
+        "status": str(item_do.get("itemStatusStr") or "").strip(),
+        "description": str(item_do.get("desc") or "").strip(),
+        "view_count": item_do.get("browseCnt"),
+        "want_count": item_do.get("wantCnt"),
+        "sold_count": item_do.get("soldCnt"),
+        "favorite_count": item_do.get("collectCnt"),
+        "seller_total_sold": seller_do.get("hasSoldNumInteger"),
     }
     return {"ok": (not not_found) and bool(item_do), "not_found": not_found, "fields": fields}
 
@@ -191,14 +191,14 @@ async def run_fetch(args: argparse.Namespace) -> None:
                     update_row(row, fields)
                     state["dead"].pop(item_id, None)
                     state["uncertain"].pop(item_id, None)
-                    state["fetched"][item_id] = {"result": "ok", "status": fields["商品状态"]}
-                    if fields["商品状态"] != ONLINE_STATUS:
-                        state["dead"][item_id] = f"商品状态={fields['商品状态']}"
-                        print(f"[{index}/{len(targets)}] {item_id} 商品状态 {fields['商品状态']} -> 待删除")
+                    state["fetched"][item_id] = {"result": "ok", "status": fields["status"]}
+                    if fields["status"] != ONLINE_STATUS:
+                        state["dead"][item_id] = f"商品状态={fields['status']}"
+                        print(f"[{index}/{len(targets)}] {item_id} 商品状态 {fields['status']} -> 待删除")
                     else:
                         print(
                             f"[{index}/{len(targets)}] {item_id} 已回填 "
-                            f"(描述 {len(fields['商品描述'])} 字, 浏览 {fields['浏览量']}, 想要 {fields['“想要”人数']})"
+                            f"(描述 {len(fields['description'])} 字, 浏览 {fields['view_count']}, 想要 {fields['want_count']})"
                         )
             save_state(state)
             await asyncio.sleep(random.uniform(2, 4))
@@ -214,13 +214,13 @@ async def run_fetch(args: argparse.Namespace) -> None:
 
 def update_row(row: sqlite3.Row, fields: dict) -> None:
     record = json.loads(row["raw_json"])
-    item = record.setdefault("商品信息", {})
+    item = record.setdefault("item_info", {})
     for key, value in fields.items():
         if value is None or value == "":
             continue
-        if key == "商品描述":
+        if key == "description":
             item[key] = value
-        elif key in ("浏览量", "“想要”人数", "商品已售数", "商品收藏数", "卖家累计已售数"):
+        elif key in ("view_count", "want_count", "sold_count", "favorite_count", "seller_total_sold"):
             item[key] = value
         else:
             item[key] = value
@@ -228,7 +228,7 @@ def update_row(row: sqlite3.Row, fields: dict) -> None:
     with db_conn() as conn:
         conn.execute(
             "UPDATE result_items SET raw_json = ?, publish_time = COALESCE(?, publish_time) WHERE id = ?",
-            (raw, item.get("发布时间"), row["id"]),
+            (raw, item.get("publish_time"), row["id"]),
         )
         conn.commit()
 

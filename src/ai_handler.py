@@ -389,11 +389,11 @@ async def get_ai_analysis(product_data, image_paths=None, prompt_text=""):
         safe_print("   [AI分析] 错误：AI客户端未初始化，跳过分析。")
         return None
 
-    item_info = product_data.get('商品信息', {})
-    product_id = item_info.get('商品ID', 'N/A')
+    item_info = product_data.get('item_info', {})
+    product_id = item_info.get('item_id', 'N/A')
 
     safe_print(f"\n   [AI分析] 开始分析商品 #{product_id} (含 {len(image_paths or [])} 张图片)...")
-    safe_print(f"   [AI分析] 标题: {item_info.get('商品标题', '无')}")
+    safe_print(f"   [AI分析] 标题: {item_info.get('title', '无')}")
 
     if not prompt_text:
         safe_print("   [AI分析] 错误：未提供AI分析所需的prompt文本。")
@@ -439,12 +439,12 @@ async def get_ai_analysis(product_data, image_paths=None, prompt_text=""):
         log_filename = f"{current_time}.log"
         log_filepath = os.path.join(logs_dir, log_filename)
 
-        task_name = product_data.get("任务名称") or product_data.get("任务名") or "unknown"
+        task_name = product_data.get("task_name") or product_data.get("task_name") or "unknown"
         log_payload = {
             "timestamp": current_time,
             "task_name": task_name,
             "product_id": product_id,
-            "title": item_info.get("商品标题", "无"),
+            "title": item_info.get("title", "无"),
             "image_count": len(image_data_urls),
         }
         log_content = json.dumps(log_payload, ensure_ascii=False)

@@ -27,8 +27,8 @@ const emit = defineEmits<{
 }>()
 const { t } = useI18n()
 
-const info = props.item.商品信息
-const seller = props.item.卖家信息 ?? {}
+const info = props.item.item_info
+const seller = props.item.seller_info ?? {}
 const ai = props.item.ai_analysis
 const priceInsight = props.item.price_insight
 
@@ -39,8 +39,8 @@ const recommendationStatus = computed(() => {
   return { label: t('results.card.pending'), color: 'bg-amber-500', icon: AlertCircle, text: 'text-amber-600', bg: 'bg-amber-50' }
 })
 
-const imageUrl = info.商品图片列表?.[0] || info.商品主图链接 || ''
-const crawlTime = formatLocalDateTime(props.item.爬取时间)
+const imageUrl = info.images?.[0] || info.main_image || ''
+const crawlTime = formatLocalDateTime(props.item.crawl_time)
 const rawMatchScore = ai?.value_score
 const hasMatchScore = typeof rawMatchScore === 'number' && Number.isFinite(rawMatchScore)
 const matchScore = hasMatchScore ? Math.max(0, Math.min(100, rawMatchScore)) : 0
@@ -80,21 +80,21 @@ const hasValue = (value?: string | number | null) => {
   return text !== '' && text !== '-' && text !== '暂无' && text !== 'N/A' && text !== '0'
 }
 
-const publishTime = cleanText(info.发布时间).replace(/^\d{4}-/, '')
-const shipRegion = cleanText(info.发货地区)
-const viewCount = info.浏览量
-const wantCount = info['“想要”人数']
-const productTags = Array.isArray(info.商品标签) ? info.商品标签 : []
+const publishTime = cleanText(info.publish_time).replace(/^\d{4}-/, '')
+const shipRegion = cleanText(info.shipping_area)
+const viewCount = info.view_count
+const wantCount = info['want_count']
+const productTags = Array.isArray(info.tags) ? info.tags : []
 
 const listingStats = computed(() => {
-  const list = Array.isArray(seller['卖家发布的商品列表']) ? seller['卖家发布的商品列表'] : []
+  const list = Array.isArray(seller['seller_items']) ? seller['seller_items'] : []
   let onSale = 0
   let sold = 0
   for (const entry of list) {
-    if (entry?.商品状态 === '在售') onSale += 1
-    else if (entry?.商品状态 === '已售') sold += 1
+    if (entry?.status === '在售') onSale += 1
+    else if (entry?.status === '已售') sold += 1
   }
-  const total = Number.parseInt(String(seller['卖家在售/已售商品数'] ?? ''), 10)
+  const total = Number.parseInt(String(seller['seller_listing_counts'] ?? ''), 10)
   return { onSale, sold, total: Number.isNaN(total) ? onSale + sold : total }
 })
 
@@ -128,32 +128,32 @@ const sellerBadges = computed<SellerBadge[]>(() => {
       tone: stats.sold > 0 ? 'text-emerald-600' : 'text-slate-600',
     })
   }
-  const credit = cleanText(seller['卖家信用等级'])
+  const credit = cleanText(seller['seller_credit_level'])
   badges.push({
     label: t('results.card.sellerCredit'),
     value: hasValue(credit) ? shortCredit(credit) : t('results.card.noData'),
     tone: hasValue(credit) ? creditTone(credit) : 'text-slate-400',
   })
-  const zhima = cleanText(seller['卖家芝麻信用'])
+  const zhima = cleanText(seller['seller_zhima_credit'])
   badges.push({
     label: t('results.card.zhimaCredit'),
     value: hasValue(zhima) ? shortCredit(zhima) : t('results.card.noData'),
     tone: hasValue(zhima) ? creditTone(zhima) : 'text-slate-400',
   })
-  const buyerCredit = cleanText(seller['买家信用等级'])
+  const buyerCredit = cleanText(seller['buyer_credit_level'])
   badges.push({
     label: t('results.card.buyerCredit'),
     value: hasValue(buyerCredit) ? shortCredit(buyerCredit) : t('results.card.noData'),
     tone: hasValue(buyerCredit) ? creditTone(buyerCredit) : 'text-slate-400',
   })
-  const member = cleanText(seller['卖家注册时长'])
+  const member = cleanText(seller['seller_registered_years'])
   badges.push({
     label: t('results.card.memberAge'),
     value: hasValue(member) ? member.replace(/^来闲鱼/, '') : t('results.card.noData'),
     tone: hasValue(member) ? 'text-slate-600' : 'text-slate-400',
   })
-  const rate = cleanText(seller['作为卖家的好评率'])
-  const count = cleanText(seller['作为卖家的好评数'])
+  const rate = cleanText(seller['seller_good_rate'])
+  const count = cleanText(seller['seller_good_ratings'])
   if (hasValue(rate) && count && count !== '0/0') {
     badges.push({
       label: t('results.card.sellerRating'),
@@ -171,7 +171,7 @@ const sellerBadges = computed<SellerBadge[]>(() => {
 })
 
 const router = useRouter()
-const detailPath = computed(() => `/results/item/${encodeURIComponent(info.商品ID)}`)
+const detailPath = computed(() => `/results/item/${encodeURIComponent(info.item_id)}`)
 function openDetail(event: MouseEvent) {
   event.preventDefault()
   event.stopPropagation()
@@ -179,8 +179,8 @@ function openDetail(event: MouseEvent) {
 }
 
 const fav = useFavorites()
-const favOn = computed(() => fav.isFavorite(info.商品ID))
-const favPending = computed(() => fav.isPending(info.商品ID))
+const favOn = computed(() => fav.isFavorite(info.item_id))
+const favPending = computed(() => fav.isPending(info.item_id))
 
 onMounted(() => {
   fav.load().catch(() => {})
@@ -209,7 +209,7 @@ async function onToggleFavorite() {
       <img
         v-else
         :src="imageUrl"
-        :alt="info.商品标题"
+        :alt="info.title"
         class="h-full w-full cursor-zoom-in object-cover transition-transform duration-500 group-hover:scale-110"
         loading="lazy"
         @click="openDetail"
@@ -253,7 +253,7 @@ async function onToggleFavorite() {
           <Eye v-else class="w-4 h-4" />
         </button>
          <a
-           :href="info.商品链接"
+           :href="info.link"
            target="_blank"
            rel="noopener noreferrer"
            :aria-label="t('results.card.detail')"
@@ -279,7 +279,7 @@ async function onToggleFavorite() {
             :title="t('itemDetail.openLocal')"
             @click="openDetail"
           >
-            {{ info.商品标题 }}
+            {{ info.title }}
           </a>
         </CardTitle>
       </div>
@@ -287,8 +287,8 @@ async function onToggleFavorite() {
         <span
           class="text-2xl font-bold tracking-tight"
           :class="isExpired ? 'text-slate-400' : 'text-rose-600'"
-        >{{ info.当前售价 }}</span>
-        <span v-if="hasValue(info['商品原价'])" class="text-xs text-slate-400 line-through mb-1">{{ info['商品原价'] }}</span>
+        >{{ info.price }}</span>
+        <span v-if="hasValue(info['original_price'])" class="text-xs text-slate-400 line-through mb-1">{{ info['original_price'] }}</span>
       </div>
       <!-- 固定占位：没有价格变动时不渲染内容，但保留高度，避免同一行卡片被顶得不齐 -->
       <div class="mt-1 flex min-h-[18px] items-center gap-1 text-[11px]">
@@ -418,14 +418,14 @@ async function onToggleFavorite() {
       <div class="flex items-center gap-3 text-slate-400">
         <div class="flex items-center gap-1">
           <User class="w-3 h-3" />
-          <span class="truncate max-w-[60px]">{{ seller.卖家昵称 || info.卖家昵称 || t('results.card.anonymous') }}</span>
+          <span class="truncate max-w-[60px]">{{ seller.seller_nickname || info.seller_nickname || t('results.card.anonymous') }}</span>
         </div>
         <div class="flex items-center gap-1">
           <Clock class="w-3 h-3" />
           <span>{{ crawlTime }}</span>
         </div>
       </div>
-      <a :href="info.商品链接" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 text-primary font-bold hover:gap-1.5 transition-all">
+      <a :href="info.link" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 text-primary font-bold hover:gap-1.5 transition-all">
         {{ t('results.card.detail') }} <ExternalLink class="w-3 h-3" />
       </a>
     </CardFooter>

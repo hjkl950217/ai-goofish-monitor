@@ -12,6 +12,7 @@ import sqlite3
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from src.infrastructure.persistence.record_keys import normalize_record
 from src.infrastructure.persistence.sqlite_connection import sqlite_connection
 from src.services.analysis_prompt_builder import build_analysis_prompt
 
@@ -191,10 +192,10 @@ async def run_analyze(
     async def analyze_one(row: sqlite3.Row) -> None:
         async with semaphore:
             item_id = str(row["item_id"])
-            record = json.loads(row["raw_json"])
-            item = record.get("商品信息", {}) or {}
-            urls = item.get("商品图片列表") or (
-                [item["商品主图链接"]] if item.get("商品主图链接") else []
+            record = normalize_record(json.loads(row["raw_json"]))
+            item = record.get("item_info", {}) or {}
+            urls = item.get("images") or (
+                [item["main_image"]] if item.get("main_image") else []
             )
             image_paths: List[str] = []
             result = None

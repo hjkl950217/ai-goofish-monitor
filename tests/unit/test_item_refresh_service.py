@@ -15,15 +15,15 @@ def seeded_db(tmp_path, monkeypatch):
     monkeypatch.setenv("APP_DATABASE_FILE", str(tmp_path / "t.sqlite3"))
     bootstrap_sqlite_storage()
     record = {
-        "爬取时间": "2026-10-01T00:00:00",
-        "搜索关键字": "测试车",
-        "任务名称": "T",
-        "商品信息": {
-            "商品ID": ITEM_ID,
-            "商品标题": "标题",
-            "当前售价": "¥5000",
-            "商品描述": "旧描述",
-            "商品链接": f"https://www.goofish.com/item?id={ITEM_ID}",
+        "crawl_time": "2026-10-01T00:00:00",
+        "keyword": "测试车",
+        "task_name": "T",
+        "item_info": {
+            "item_id": ITEM_ID,
+            "title": "标题",
+            "price": "¥5000",
+            "description": "旧描述",
+            "link": f"https://www.goofish.com/item?id={ITEM_ID}",
         },
     }
     with sqlite_connection() as conn:
@@ -91,7 +91,7 @@ def test_price_change_updates_latest_but_keeps_initial(seeded_db):
     assert row["price"] == 4500.0
     assert row["initial_price"] == 5000.0
     assert row["price_display"] == "¥4500"
-    assert json.loads(row["raw_json"])["商品信息"]["当前售价"] == "¥4500"
+    assert json.loads(row["raw_json"])["item_info"]["price"] == "¥4500"
 
 
 def test_unchanged_item_only_touches_last_checked(seeded_db):
@@ -126,9 +126,9 @@ def test_image_count_change_updates_list_without_reanalysis(seeded_db):
         row = conn.execute(
             "SELECT raw_json FROM result_items WHERE item_id = ?", (ITEM_ID,)
         ).fetchone()
-    info = json.loads(row["raw_json"])["商品信息"]
-    assert info["商品图片列表"] == ["http://img/1.jpg", "http://img/2.jpg"]
-    assert info["商品主图链接"] == "http://img/1.jpg"
+    info = json.loads(row["raw_json"])["item_info"]
+    assert info["images"] == ["http://img/1.jpg", "http://img/2.jpg"]
+    assert info["main_image"] == "http://img/1.jpg"
 
 
 def test_offline_item_is_marked_expired(seeded_db):

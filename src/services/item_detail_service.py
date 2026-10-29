@@ -5,6 +5,7 @@ import json
 import os
 from typing import Any, Dict, List, Optional
 
+from src.infrastructure.persistence.record_keys import normalize_record
 from src.infrastructure.persistence.sqlite_connection import sqlite_connection
 
 IMAGE_SAVE_DIR = "images"
@@ -35,7 +36,7 @@ def get_item(item_id: str) -> Optional[Dict[str, Any]]:
     if not row:
         return None
 
-    record = json.loads(row["raw_json"])
+    record = normalize_record(json.loads(row["raw_json"]))
     record["_meta"] = {
         "id": row["id"],
         "result_filename": row["result_filename"],

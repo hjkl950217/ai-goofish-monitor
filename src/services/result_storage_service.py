@@ -8,6 +8,7 @@ import hashlib
 import json
 from datetime import datetime
 
+from src.infrastructure.persistence.record_keys import normalize_record
 from src.infrastructure.persistence.sqlite_bootstrap import bootstrap_sqlite_storage
 from src.infrastructure.persistence.sqlite_connection import sqlite_connection
 from src.infrastructure.persistence.storage_names import build_result_filename
@@ -33,7 +34,7 @@ def _get_link_unique_key(link: str) -> str:
 
 
 def _fallback_unique_key(record: dict, item: dict) -> str:
-    item_id = str(item.get("商品ID") or "").strip()
+    item_id = str(item.get("item_id") or "").strip()
     if item_id:
         return f"item:{item_id}"
     digest = hashlib.sha1(
@@ -43,7 +44,8 @@ def _fallback_unique_key(record: dict, item: dict) -> str:
 
 
 def _parse_raw_record(raw_json: str, *, status: str | None = None) -> dict:
-    record = json.loads(raw_json)
+    # 旧行是中文键，读出来先归一化，对外一律英文键
+    record = normalize_record(json.loads(raw_json))
     if status is not None:
         record["_status"] = status
     return record
@@ -80,8 +82,13 @@ def _build_query_conditions(
         conditions.append("publish_time >= datetime('now', ?)")
         params.append(f"-{int(published_days)} days")
     if ship_region:
-        # 发货地只在 raw_json 里，字段名为中文
-        conditions.append("json_extract(raw_json, '$.商品信息.发货地区') LIKE ?")
+        # 发货地只在 raw_json 里；旧行是中文键，新行是英文键，两边都查
+        conditions.append(
+            "COALESCE("
+            "json_extract(raw_json, '$.item_info.shipping_area'),"
+            " json_extract(raw_json, '$.商品信息.发货地区')"
+            ") LIKE ?"
+        )
         params.append(f"%{ship_region}%")
     if analysis_status == "analyzed":
         conditions.append(
@@ -199,9 +206,9 @@ async def save_result_record(record: dict, keyword: str) -> bool:
 
 def _save_result_record_sync(record: dict, keyword: str) -> bool:
     bootstrap_sqlite_storage()
-    item = record.get("商品信息", {}) or {}
+    item = record.get("item_info", {}) or {}
     analysis = record.get("ai_analysis", {}) or {}
-    link = str(item.get("商品链接") or "")
+    link = str(item.get("link") or "")
     link_unique_key = _get_link_unique_key(link) if link else _fallback_unique_key(record, item)
     keyword_hit_count = analysis.get("keyword_hit_count", 0)
     try:
@@ -220,18 +227,18 @@ def _save_result_record_sync(record: dict, keyword: str) -> bool:
             """,
             (
                 build_result_filename(keyword),
-                record.get("搜索关键字", keyword),
-                record.get("任务名称", ""),
-                record.get("爬取时间", ""),
-                item.get("发布时间"),
-                parse_price_value(item.get("当前售价")),
-                parse_price_value(item.get("当前售价")),
-                item.get("当前售价"),
-                item.get("商品ID"),
-                item.get("商品标题"),
+                record.get("keyword", keyword),
+                record.get("task_name", ""),
+                record.get("crawl_time", ""),
+                item.get("publish_time"),
+                parse_price_value(item.get("price")),
+                parse_price_value(item.get("price")),
+                item.get("price"),
+                item.get("item_id"),
+                item.get("title"),
                 link,
                 link_unique_key,
-                (record.get("卖家信息", {}) or {}).get("卖家昵称") or item.get("卖家昵称"),
+                (record.get("seller_info", {}) or {}).get("seller_nickname") or item.get("seller_nickname"),
                 1 if analysis.get("is_recommended") else 0,
                 analysis.get("analysis_source"),
                 keyword_hit_count,
@@ -253,9 +260,9 @@ async def update_result_record(record: dict, keyword: str) -> bool:
 
 def _update_result_record_sync(record: dict, keyword: str) -> bool:
     bootstrap_sqlite_storage()
-    item = record.get("商品信息", {}) or {}
+    item = record.get("item_info", {}) or {}
     analysis = record.get("ai_analysis", {}) or {}
-    item_id = str(item.get("商品ID") or "").strip()
+    item_id = str(item.get("item_id") or "").strip()
     if not item_id:
         return False
     try:
@@ -274,13 +281,13 @@ def _update_result_record_sync(record: dict, keyword: str) -> bool:
             WHERE result_filename = ? AND item_id = ?
             """,
             (
-                record.get("搜索关键字", keyword),
-                record.get("任务名称", ""),
-                item.get("发布时间"),
-                parse_price_value(item.get("当前售价")),
-                item.get("当前售价"),
-                item.get("商品标题"),
-                (record.get("卖家信息", {}) or {}).get("卖家昵称") or item.get("卖家昵称"),
+                record.get("keyword", keyword),
+                record.get("task_name", ""),
+                item.get("publish_time"),
+                parse_price_value(item.get("price")),
+                item.get("price"),
+                item.get("title"),
+                (record.get("seller_info", {}) or {}).get("seller_nickname") or item.get("seller_nickname"),
                 1 if analysis.get("is_recommended") else 0,
                 analysis.get("analysis_source"),
                 keyword_hit_count,
@@ -502,7 +509,7 @@ def _load_result_summary_sync(filename: str) -> dict | None:
         "recommended_items": len(recommended_records),
         "ai_recommended_items": ai_recommended_items,
         "keyword_recommended_items": keyword_recommended_items,
-        "latest_crawl_time": visible_records[0].get("爬取时间"),
+        "latest_crawl_time": visible_records[0].get("crawl_time"),
         "latest_record": visible_records[0],
         "latest_recommendation": recommended_records[0] if recommended_records else None,
     }
@@ -574,8 +581,8 @@ def load_visible_result_item_ids(filename: str) -> set[str]:
         )
     item_ids: set[str] = set()
     for record in visible_records:
-        product = record.get("商品信息", {}) or {}
-        item_id = str(product.get("商品ID") or "").strip()
+        product = record.get("item_info", {}) or {}
+        item_id = str(product.get("item_id") or "").strip()
         if item_id:
             item_ids.add(item_id)
     return item_ids

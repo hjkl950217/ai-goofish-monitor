@@ -23,7 +23,7 @@ def test_build_messages_without_images_uses_text_only_content():
     client = AIClient.__new__(AIClient)
 
     messages = client._build_messages(
-        {"商品信息": {"商品标题": "MacBook Pro M2"}, "卖家信息": {"卖家信用等级": "优秀"}},
+        {"item_info": {"title": "MacBook Pro M2"}, "seller_info": {"seller_credit_level": "优秀"}},
         [],
         "只分析文字描述和卖家资质。",
     )
@@ -39,7 +39,7 @@ def test_build_messages_with_images_uses_multimodal_content(monkeypatch):
     monkeypatch.setattr(AIClient, "encode_image", staticmethod(lambda _path: "ZmFrZQ=="))
 
     messages = client._build_messages(
-        {"商品信息": {"商品标题": "MacBook Pro M2"}},
+        {"item_info": {"title": "MacBook Pro M2"}},
         ["fake-image.jpg"],
         "结合图片和文字综合判断。",
     )

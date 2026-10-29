@@ -31,8 +31,8 @@ const activeImage = ref<number>(0)
 const lightboxOpen = ref(false)
 
 const itemId = computed(() => String(route.params.itemId ?? ''))
-const info = computed(() => item.value?.商品信息 ?? ({} as ResultItem['商品信息']))
-const seller = computed(() => item.value?.卖家信息 ?? {})
+const info = computed(() => item.value?.item_info ?? ({} as ResultItem['item_info']))
+const seller = computed(() => item.value?.seller_info ?? {})
 const ai = computed(() => item.value?.ai_analysis)
 const priceInsight = computed(() => item.value?.price_insight)
 
@@ -52,7 +52,7 @@ const formattedDelta = computed(() => {
 })
 
 const statusTone = computed(() => {
-  const status = String(info.value?.商品状态 ?? '')
+  const status = String(info.value?.status ?? '')
   if (status === '在线') return 'bg-emerald-50 text-emerald-700'
   if (status === '卖掉了' || status === '已下架') return 'bg-rose-50 text-rose-700'
   return 'bg-slate-100 text-slate-600'
@@ -80,22 +80,22 @@ const sellerRows = computed(() => {
     const raw = seller.value[key as keyof typeof seller.value]
     const value = raw == null ? '' : String(raw).trim()
     if (value && value !== '暂无' && value !== '-') {
-      rows.push({ label, value: key === '卖家注册时长' ? value.replace(/^来闲鱼/, '') : value })
+      rows.push({ label, value: key === 'seller_registered_years' ? value.replace(/^来闲鱼/, '') : value })
     }
   }
-  push('卖家昵称', t('itemDetail.nickname'))
-  push('卖家信用等级', t('itemDetail.sellerCredit'))
-  push('卖家芝麻信用', t('itemDetail.zhimaCredit'))
-  push('买家信用等级', t('itemDetail.buyerCredit'))
-  push('卖家注册时长', t('itemDetail.memberAge'))
-  push('作为卖家的好评率', t('itemDetail.sellerRate'))
-  push('作为卖家的好评数', t('itemDetail.sellerRateCount'))
-  push('卖家收到的评价总数', t('itemDetail.reviewCount'))
-  push('卖家在售/已售商品数', t('itemDetail.listings'))
+  push('seller_nickname', t('itemDetail.nickname'))
+  push('seller_credit_level', t('itemDetail.sellerCredit'))
+  push('seller_zhima_credit', t('itemDetail.zhimaCredit'))
+  push('buyer_credit_level', t('itemDetail.buyerCredit'))
+  push('seller_registered_years', t('itemDetail.memberAge'))
+  push('seller_good_rate', t('itemDetail.sellerRate'))
+  push('seller_good_ratings', t('itemDetail.sellerRateCount'))
+  push('seller_rating_total', t('itemDetail.reviewCount'))
+  push('seller_listing_counts', t('itemDetail.listings'))
   return rows
 })
 
-const productTags = computed(() => (Array.isArray(info.value?.商品标签) ? info.value!.商品标签 : []) as string[])
+const productTags = computed(() => (Array.isArray(info.value?.tags) ? info.value!.tags : []) as string[])
 
 const EMPTY_VALUES = new Set(['', '-', '暂无', 'N/A', 'null', 'undefined'])
 function display(value: unknown): string {
@@ -141,7 +141,7 @@ async function loadNeighbors() {
   try {
     const data = await getResultContent(filename, { limit: 500, page: 1 })
     const ids = (data.items || []).map((row) =>
-      String(row.商品信息?.商品ID ?? row._meta?.item_id ?? ''),
+      String(row.item_info?.item_id ?? row._meta?.item_id ?? ''),
     )
     const index = ids.indexOf(itemId.value)
     neighborIds.value = {
@@ -193,8 +193,8 @@ watch(item, () => {
           <ChevronRight class="h-4 w-4" />
         </Button>
         <a
-          v-if="info.商品链接"
-          :href="info.商品链接"
+          v-if="info.link"
+          :href="info.link"
           target="_blank"
           rel="noopener noreferrer"
           class="inline-flex items-center text-sm text-primary hover:underline"
@@ -249,12 +249,12 @@ watch(item, () => {
           </CardContent>
         </Card>
 
-        <Card v-if="info.商品描述">
+        <Card v-if="info.description">
           <CardHeader class="pb-2">
             <CardTitle class="text-base">{{ t('itemDetail.description') }}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p class="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{{ info.商品描述 }}</p>
+            <p class="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{{ info.description }}</p>
           </CardContent>
         </Card>
 
@@ -284,11 +284,11 @@ watch(item, () => {
       <div class="space-y-5">
         <Card>
           <CardContent class="space-y-3 pt-4">
-            <h1 class="text-base font-semibold leading-snug text-slate-800">{{ info.商品标题 }}</h1>
+            <h1 class="text-base font-semibold leading-snug text-slate-800">{{ info.title }}</h1>
             <div class="flex items-center gap-2">
-              <span class="text-2xl font-bold" :class="isExpired ? 'text-slate-400' : 'text-rose-600'">{{ formatPrice(info.当前售价) }}</span>
-              <span v-if="info['商品原价'] && info['商品原价'] !== '暂无'" class="text-xs text-slate-400 line-through">
-                {{ info['商品原价'] }}
+              <span class="text-2xl font-bold" :class="isExpired ? 'text-slate-400' : 'text-rose-600'">{{ formatPrice(info.price) }}</span>
+              <span v-if="info['original_price'] && info['original_price'] !== '暂无'" class="text-xs text-slate-400 line-through">
+                {{ info['original_price'] }}
               </span>
             </div>
             <div v-if="priceDelta !== 0" class="flex items-center gap-1 text-xs">
@@ -297,34 +297,34 @@ watch(item, () => {
               <span class="font-semibold" :class="deltaTone">{{ priceDelta < 0 ? '-' : '+' }}{{ formattedDelta }}</span>
             </div>
             <div class="flex flex-wrap gap-1.5">
-              <Badge v-if="info.商品状态" :class="statusTone">{{ info.商品状态 }}</Badge>
+              <Badge v-if="info.status" :class="statusTone">{{ info.status }}</Badge>
               <Badge v-for="tag in productTags" :key="tag" variant="secondary">{{ tag }}</Badge>
             </div>
 
             <dl class="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-slate-100 pt-3 text-xs">
               <div class="flex justify-between gap-2">
                 <dt class="text-slate-400">{{ t('results.card.publishTime') }}</dt>
-                <dd class="truncate font-medium text-slate-700">{{ formatLocalDateTime(info.发布时间) }}</dd>
+                <dd class="truncate font-medium text-slate-700">{{ formatLocalDateTime(info.publish_time) }}</dd>
               </div>
               <div class="flex justify-between gap-2">
                 <dt class="text-slate-400">{{ t('results.card.shipsFrom') }}</dt>
-                <dd class="truncate font-medium text-slate-700">{{ display(info.发货地区) }}</dd>
+                <dd class="truncate font-medium text-slate-700">{{ display(info.shipping_area) }}</dd>
               </div>
               <div class="flex justify-between gap-2">
                 <dt class="text-slate-400">{{ t('results.card.views') }}</dt>
-                <dd class="font-medium text-slate-700">{{ display(info.浏览量) }}</dd>
+                <dd class="font-medium text-slate-700">{{ display(info.view_count) }}</dd>
               </div>
               <div class="flex justify-between gap-2">
                 <dt class="text-slate-400">{{ t('results.card.wanted') }}</dt>
-                <dd class="font-medium text-slate-700">{{ display(info['“想要”人数']) }}</dd>
+                <dd class="font-medium text-slate-700">{{ display(info['want_count']) }}</dd>
               </div>
               <div class="flex justify-between gap-2">
                 <dt class="text-slate-400">{{ t('itemDetail.collected') }}</dt>
-                <dd class="font-medium text-slate-700">{{ display(info.商品收藏数) }}</dd>
+                <dd class="font-medium text-slate-700">{{ display(info.favorite_count) }}</dd>
               </div>
               <div class="flex justify-between gap-2">
                 <dt class="text-slate-400">{{ t('itemDetail.soldCount') }}</dt>
-                <dd class="font-medium text-slate-700">{{ display(info.商品已售数) }}</dd>
+                <dd class="font-medium text-slate-700">{{ display(info.sold_count) }}</dd>
               </div>
             </dl>
           </CardContent>
@@ -356,7 +356,7 @@ watch(item, () => {
               </Badge>
             </div>
             <p class="text-[11px] text-slate-400">
-              {{ t('itemDetail.analyzedAt') }}: {{ formatLocalDateTime(ai.backfilled_at || item?.爬取时间) }}
+              {{ t('itemDetail.analyzedAt') }}: {{ formatLocalDateTime(ai.backfilled_at || item?.crawl_time) }}
             </p>
           </CardContent>
         </Card>

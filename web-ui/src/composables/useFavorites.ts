@@ -39,27 +39,27 @@ function isPending(itemId: string): boolean {
 }
 
 async function toggle(item: ResultItem): Promise<boolean> {
-  const { 商品ID, 商品链接, 商品标题 } = item.商品信息
-  if (!商品ID || pending.value.has(商品ID)) return isFavorite(商品ID)
-  const wasFavorite = isFavorite(商品ID)
-  pending.value.add(商品ID)
+  const { item_id: itemId, link, title } = item.item_info
+  if (!itemId || pending.value.has(itemId)) return isFavorite(itemId)
+  const wasFavorite = isFavorite(itemId)
+  pending.value.add(itemId)
   try {
-    const res = await fetch(`/api/favorites/${encodeURIComponent(商品ID)}`, {
+    const res = await fetch(`/api/favorites/${encodeURIComponent(itemId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: wasFavorite ? 'remove' : 'add',
-        link: 商品链接,
-        title: 商品标题,
+        link,
+        title,
       }),
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = (await res.json()) as { favorited: boolean }
-    if (data.favorited) ids.value.add(商品ID)
-    else ids.value.delete(商品ID)
+    if (data.favorited) ids.value.add(itemId)
+    else ids.value.delete(itemId)
     return data.favorited
   } finally {
-    pending.value.delete(商品ID)
+    pending.value.delete(itemId)
   }
 }
 

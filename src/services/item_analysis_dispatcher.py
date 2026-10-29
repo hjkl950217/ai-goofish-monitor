@@ -78,22 +78,22 @@ class ItemAnalysisDispatcher:
 
     async def _process_job(self, job: ItemAnalysisJob) -> None:
         record = copy.deepcopy(job.final_record)
-        item_data = record.get("商品信息", {}) or {}
+        item_data = record.get("item_info", {}) or {}
 
         # 型号核对放在最前面：不是任务要的型号，卖家信息、AI 分析、图片都不做
         if job.model_check and not job.update_existing:
             verdict = await self._check_model(job, item_data)
             if verdict is not None and verdict.get("matched") is False:
                 print(
-                    f"   [型号] 商品 {item_data.get('商品ID')} 不是「{job.keyword}」，跳过入库："
+                    f"   [型号] 商品 {item_data.get('item_id')} 不是「{job.keyword}」，跳过入库："
                     f"{verdict.get('reason')}"
                 )
                 return
 
         if job.update_existing:
-            record.setdefault("卖家信息", {})
+            record.setdefault("seller_info", {})
         else:
-            record["卖家信息"] = await self._load_seller_info(job)
+            record["seller_info"] = await self._load_seller_info(job)
 
         # 只有需要喂给模型时才先拉图，分析完不推荐就删掉
         needs_analysis_images = job.analyze_images and job.decision_mode != "keyword"
@@ -118,7 +118,7 @@ class ItemAnalysisDispatcher:
 
     async def _check_model(self, job: ItemAnalysisJob, item_data: dict) -> Optional[dict]:
         """返回 None 表示判断不了，调用方放行。"""
-        item_id = str(item_data.get("商品ID") or "").strip()
+        item_id = str(item_data.get("item_id") or "").strip()
         if not item_id:
             return None
         try:
@@ -126,8 +126,8 @@ class ItemAnalysisDispatcher:
                 item_id=item_id,
                 task_name=job.task_name,
                 target=job.keyword,
-                title=str(item_data.get("商品标题") or ""),
-                description=str(item_data.get("商品描述") or ""),
+                title=str(item_data.get("title") or ""),
+                description=str(item_data.get("description") or ""),
             )
         except Exception as exc:  # noqa: BLE001
             print(f"   [型号] 判断出错，放行: {exc}")
@@ -141,8 +141,8 @@ class ItemAnalysisDispatcher:
             except Exception as exc:
                 print(f"   [卖家] 采集卖家 {job.seller_id} 信息失败: {exc}")
         merged = copy.deepcopy(seller_info or {})
-        merged["卖家芝麻信用"] = job.zhima_credit_text
-        merged["卖家注册时长"] = job.registration_duration_text
+        merged["seller_zhima_credit"] = job.zhima_credit_text
+        merged["seller_registered_years"] = job.registration_duration_text
         return merged
 
     async def _build_analysis_result(
@@ -205,13 +205,13 @@ class ItemAnalysisDispatcher:
             )
 
     async def _download_images(self, job: ItemAnalysisJob, record: dict) -> list[str]:
-        item_data = record.get("商品信息", {}) or {}
-        image_urls = item_data.get("商品图片列表", [])
+        item_data = record.get("item_info", {}) or {}
+        image_urls = item_data.get("images", [])
         if not image_urls:
             return []
         try:
             return await self._image_downloader(
-                item_data["商品ID"],
+                item_data["item_id"],
                 image_urls,
                 job.task_name,
             )

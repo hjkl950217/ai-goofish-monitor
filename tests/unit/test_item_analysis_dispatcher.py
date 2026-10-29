@@ -28,12 +28,12 @@ def test_item_analysis_dispatcher_uses_bounded_concurrency():
         return {
             "analysis_source": "ai",
             "is_recommended": True,
-            "reason": f"推荐 {record['商品信息']['商品ID']}",
+            "reason": f"推荐 {record['item_info']['item_id']}",
             "keyword_hit_count": 0,
         }
 
     async def notifier(item_data: dict, reason: str):
-        notifications.append((item_data["商品ID"], reason))
+        notifications.append((item_data["item_id"], reason))
 
     async def saver(record: dict, keyword: str):
         saved_records.append((keyword, record))
@@ -59,8 +59,8 @@ def test_item_analysis_dispatcher_uses_bounded_concurrency():
                     prompt_text="prompt",
                     keyword_rules=(),
                     final_record={
-                        "商品信息": {"商品ID": str(index), "商品图片列表": []},
-                        "卖家信息": {},
+                        "item_info": {"item_id": str(index), "images": []},
+                        "seller_info": {},
                     },
                     seller_id=f"seller-{index}",
                     zhima_credit_text="优秀",
@@ -75,7 +75,7 @@ def test_item_analysis_dispatcher_uses_bounded_concurrency():
     assert len(saved_records) == 3
     assert len(notifications) == 3
     assert max_active_ai_calls == 2
-    assert saved_records[0][1]["卖家信息"]["卖家ID"].startswith("seller-")
+    assert saved_records[0][1]["seller_info"]["卖家ID"].startswith("seller-")
 
 
 def test_images_downloaded_only_for_recommended_items():
@@ -90,7 +90,7 @@ def test_images_downloaded_only_for_recommended_items():
         return []
 
     async def ai_analyzer(record: dict, image_paths: list[str], prompt_text: str):
-        product_id = record["商品信息"]["商品ID"]
+        product_id = record["item_info"]["item_id"]
         return {
             "analysis_source": "ai",
             "is_recommended": product_id == "keep",
@@ -124,11 +124,11 @@ def test_images_downloaded_only_for_recommended_items():
                     prompt_text="prompt",
                     keyword_rules=(),
                     final_record={
-                        "商品信息": {
-                            "商品ID": product_id,
-                            "商品图片列表": ["http://img/1.jpg"],
+                        "item_info": {
+                            "item_id": product_id,
+                            "images": ["http://img/1.jpg"],
                         },
-                        "卖家信息": {},
+                        "seller_info": {},
                     },
                     seller_id=None,
                     zhima_credit_text=None,
@@ -179,8 +179,8 @@ def test_item_analysis_dispatcher_supports_keyword_mode_without_ai():
                 prompt_text="",
                 keyword_rules=("个人闲置",),
                 final_record={
-                    "商品信息": {"商品ID": "1", "商品标题": "演示商品"},
-                    "卖家信息": {},
+                    "item_info": {"item_id": "1", "title": "演示商品"},
+                    "seller_info": {},
                 },
                 seller_id="seller-1",
                 zhima_credit_text="优秀",
@@ -242,8 +242,8 @@ def test_dispatcher_skips_mismatched_model_before_any_other_work(monkeypatch):
                 prompt_text="prompt",
                 keyword_rules=(),
                 final_record={
-                    "商品信息": {"商品ID": "1", "商品标题": "九号M1 85 准新车"},
-                    "卖家信息": {},
+                    "item_info": {"item_id": "1", "title": "九号M1 85 准新车"},
+                    "seller_info": {},
                 },
                 seller_id="seller-1",
                 zhima_credit_text=None,

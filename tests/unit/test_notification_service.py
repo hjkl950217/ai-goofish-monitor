@@ -28,7 +28,7 @@ def test_notification_service_collects_success_and_failure_results():
     service = NotificationService([_OkClient(enabled=True), _FailClient(enabled=True)])
 
     results = asyncio.run(
-        service.send_notification({"商品标题": "Sony A7M4"}, "价格合适")
+        service.send_notification({"title": "Sony A7M4"}, "价格合适")
     )
 
     assert results["ok"]["success"] is True
@@ -81,9 +81,9 @@ def test_webhook_client_renders_json_templates(monkeypatch):
     asyncio.run(
         client.send(
             {
-                "商品标题": "Sony A7M4",
-                "当前售价": "9999",
-                "商品链接": "https://www.goofish.com/item/123",
+                "title": "Sony A7M4",
+                "price": "9999",
+                "link": "https://www.goofish.com/item/123",
             },
             "价格合适",
         )
@@ -98,9 +98,9 @@ def test_webhook_client_renders_json_templates(monkeypatch):
 
 def _product():
     return {
-        "商品标题": "Sony A7M4",
-        "当前售价": "9999",
-        "商品链接": "https://www.goofish.com/item/123",
+        "title": "Sony A7M4",
+        "price": "9999",
+        "link": "https://www.goofish.com/item/123",
     }
 
 

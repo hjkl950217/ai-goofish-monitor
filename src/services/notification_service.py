@@ -46,9 +46,9 @@ class NotificationService:
 
     async def send_test_notification(self) -> Dict[str, Dict[str, str | bool]]:
         test_product = {
-            "商品标题": "[测试通知] 闲鱼智能监控",
-            "当前售价": "0",
-            "商品链接": "https://www.goofish.com/",
+            "title": "[测试通知] 闲鱼智能监控",
+            "price": "0",
+            "link": "https://www.goofish.com/",
         }
         return await self.send_notification(
             test_product,
@@ -84,7 +84,7 @@ class NotificationService:
             label=client.display_name,
             success=bool(result["success"]),
             message=str(result["message"]),
-            title=str(product_data.get("商品标题", "")),
+            title=str(product_data.get("title", "")),
             is_test=is_test,
         )
         return result

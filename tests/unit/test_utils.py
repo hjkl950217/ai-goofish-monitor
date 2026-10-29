@@ -35,14 +35,14 @@ def test_sanitize_filename_strips_leading_separator():
 def test_save_to_jsonl(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     record = {
-        "爬取时间": "2026-01-01T10:00:00",
-        "搜索关键字": "sony a7m4",
-        "任务名称": "Sony A7M4",
-        "商品信息": {
-            "商品ID": "1",
-            "商品标题": "Sony A7M4",
-            "商品链接": "https://www.goofish.com/item?id=1",
-            "当前售价": "¥10000",
+        "crawl_time": "2026-01-01T10:00:00",
+        "keyword": "sony a7m4",
+        "task_name": "Sony A7M4",
+        "item_info": {
+            "item_id": "1",
+            "title": "Sony A7M4",
+            "link": "https://www.goofish.com/item?id=1",
+            "price": "¥10000",
         },
     }
 

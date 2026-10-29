@@ -1,42 +1,42 @@
 // Based on the data structure from web_server.py and scraper.py
 
 export interface ProductInfo {
-  "商品标题": string;
-  "当前售价": string;
-  "商品原价"?: string;
-  "“想要”人数"?: string | number;
-  "商品标签"?: string[];
-  "发货地区"?: string;
-  "卖家昵称"?: string;
-  "商品链接": string;
-  "发布时间"?: string;
-  "商品ID": string;
-  "商品图片列表"?: string[];
-  "商品主图链接"?: string;
-  "商品描述"?: string;
-  "浏览量"?: string | number;
-  "商品状态"?: string;
-  "商品已售数"?: string | number;
-  "商品收藏数"?: string | number;
-  "卖家累计已售数"?: string | number;
+  "title": string;
+  "price": string;
+  "original_price"?: string;
+  "want_count"?: string | number;
+  "tags"?: string[];
+  "shipping_area"?: string;
+  "seller_nickname"?: string;
+  "link": string;
+  "publish_time"?: string;
+  "item_id": string;
+  "images"?: string[];
+  "main_image"?: string;
+  "description"?: string;
+  "view_count"?: string | number;
+  "status"?: string;
+  "sold_count"?: string | number;
+  "favorite_count"?: string | number;
+  "seller_total_sold"?: string | number;
 }
 
 export interface SellerInfo {
-  "卖家昵称"?: string;
-  "卖家头像链接"?: string;
-  "卖家个性签名"?: string;
-  "卖家在售/已售商品数"?: string | number;
-  "卖家收到的评价总数"?: string;
-  "卖家信用等级"?: string;
-  "买家信用等级"?: string;
-  "卖家芝麻信用"?: string;
-  "卖家注册时长"?: string;
-  "作为卖家的好评数"?: string;
-  "作为卖家的好评率"?: string;
-  "作为买家的好评数"?: string;
-  "作为买家的好评率"?: string;
-  "卖家发布的商品列表"?: any[]; // Define more strictly if needed
-  "卖家收到的评价列表"?: any[]; // Define more strictly if needed
+  "seller_nickname"?: string;
+  "seller_avatar"?: string;
+  "seller_bio"?: string;
+  "seller_listing_counts"?: string | number;
+  "seller_rating_total"?: string;
+  "seller_credit_level"?: string;
+  "buyer_credit_level"?: string;
+  "seller_zhima_credit"?: string;
+  "seller_registered_years"?: string;
+  "seller_good_ratings"?: string;
+  "seller_good_rate"?: string;
+  "buyer_good_ratings"?: string;
+  "buyer_good_rate"?: string;
+  "seller_items"?: any[]; // Define more strictly if needed
+  "seller_ratings"?: any[]; // Define more strictly if needed
 }
 
 export interface AiAnalysis {
@@ -100,11 +100,11 @@ export interface ResultInsights {
 }
 
 export interface ResultItem {
-  "爬取时间": string;
-  "搜索关键字": string;
-  "任务名称": string;
-  "商品信息": ProductInfo;
-  "卖家信息": SellerInfo;
+  "crawl_time": string;
+  "keyword": string;
+  "task_name": string;
+  "item_info": ProductInfo;
+  "seller_info": SellerInfo;
   ai_analysis: AiAnalysis;
   price_insight?: PriceInsight;
   _meta?: {

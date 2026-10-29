@@ -51,9 +51,9 @@ class NotificationClient(ABC):
 
     def _build_message(self, product_data: Dict, reason: str) -> NotificationMessage:
         """格式化消息内容"""
-        title = product_data.get('商品标题', 'N/A')
-        price = product_data.get('当前售价', 'N/A')
-        desktop_link = product_data.get('商品链接', '#')
+        title = product_data.get('title', 'N/A')
+        price = product_data.get('price', 'N/A')
+        desktop_link = product_data.get('link', '#')
         mobile_link = None
 
         if self._pcurl_to_mobile and desktop_link and desktop_link != "#":
@@ -73,9 +73,9 @@ class NotificationClient(ABC):
         suffix = "..." if len(title) > 30 else ""
         notification_title = f"🚨 新推荐! {short_title}{suffix}"
 
-        main_image = product_data.get('商品主图链接')
+        main_image = product_data.get('main_image')
         if not main_image:
-            image_list = product_data.get('商品图片列表', [])
+            image_list = product_data.get('images', [])
             if image_list:
                 main_image = image_list[0]
 

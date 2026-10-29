@@ -66,7 +66,7 @@ export function useResults() {
   let seenLoadedFor: string | null = null
 
   function resultItemKey(item: ResultItem): string {
-    return String(item.商品信息?.商品ID ?? item._meta?.item_id ?? '')
+    return String(item.item_info?.item_id ?? item._meta?.item_id ?? '')
   }
 
   function seenStorageKey(): string {
@@ -296,7 +296,7 @@ export function useResults() {
 
   async function toggleItemBlock(item: ResultItem) {
     if (!selectedFile.value) return
-    const itemId = item.商品信息?.商品ID
+    const itemId = item.item_info?.item_id
     if (!itemId) return
     const newStatus = item._status === 'hidden' ? 'active' : 'hidden'
     try {

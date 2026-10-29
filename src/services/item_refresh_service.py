@@ -12,6 +12,7 @@ import random
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from src.infrastructure.persistence.record_keys import normalize_record
 from src.infrastructure.persistence.sqlite_connection import sqlite_connection
 from src.services.price_history_service import parse_price_value
 
@@ -112,12 +113,12 @@ def record_refresh(
                 "record": None,
             }
 
-        record = json.loads(row["raw_json"])
-        info = record.setdefault("商品信息", {})
+        record = normalize_record(json.loads(row["raw_json"]))
+        info = record.setdefault("item_info", {})
         old_price = float(row["price"]) if row["price"] is not None else None
         new_price = price if price is not None else old_price
-        price_display = _format_price(new_price) or str(info.get("当前售价") or "")
-        desc = (description or "").strip() or str(info.get("商品描述") or "")
+        price_display = _format_price(new_price) or str(info.get("price") or "")
+        desc = (description or "").strip() or str(info.get("description") or "")
         fingerprint = build_content_fingerprint(price_display, desc)
         stored = str(row["content_hash"] or "")
 
@@ -130,7 +131,7 @@ def record_refresh(
 
         # 图片很少变，只比张数，避免每轮都重新下载
         new_images = [str(url).strip() for url in (image_urls or []) if str(url).strip()]
-        old_images = info.get("商品图片列表") or []
+        old_images = info.get("images") or []
         images_changed = bool(new_images) and len(new_images) != len(old_images)
 
         if not changed and not images_changed:
@@ -147,13 +148,13 @@ def record_refresh(
                 "record": None,
             }
 
-        info["当前售价"] = price_display
+        info["price"] = price_display
         if desc:
-            info["商品描述"] = desc
+            info["description"] = desc
         if images_changed:
-            info["商品图片列表"] = new_images
-            info["商品主图链接"] = new_images[0]
-        record["复查时间"] = now
+            info["images"] = new_images
+            info["main_image"] = new_images[0]
+        record["last_checked_at"] = now
         conn.execute(
             """
             UPDATE result_items

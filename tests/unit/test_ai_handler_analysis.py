@@ -33,7 +33,7 @@ def test_get_ai_analysis_stops_after_internal_retries_when_content_is_none(
     with pytest.raises(ValueError, match="AI响应内容为空"):
         asyncio.run(
             ai_handler.get_ai_analysis(
-                {"商品信息": {"商品ID": "1", "商品标题": "测试商品"}},
+                {"item_info": {"item_id": "1", "title": "测试商品"}},
                 image_paths=[],
                 prompt_text="请输出 JSON",
             )
@@ -63,7 +63,7 @@ def test_get_ai_analysis_returns_parsed_json(monkeypatch, tmp_path):
 
     result = asyncio.run(
         ai_handler.get_ai_analysis(
-            {"商品信息": {"商品ID": "2", "商品标题": "测试商品2"}},
+            {"item_info": {"item_id": "2", "title": "测试商品2"}},
             image_paths=[],
             prompt_text="请输出 JSON",
         )
@@ -95,7 +95,7 @@ def test_get_ai_analysis_repairs_missing_value_score(monkeypatch, tmp_path):
 
     result = asyncio.run(
         ai_handler.get_ai_analysis(
-            {"商品信息": {"商品ID": "3", "商品标题": "测试商品3"}},
+            {"item_info": {"item_id": "3", "title": "测试商品3"}},
             image_paths=[],
             prompt_text="请输出 JSON",
         )
@@ -141,7 +141,7 @@ def test_get_ai_analysis_retries_without_structured_output_when_model_rejects_it
 
     result = asyncio.run(
         ai_handler.get_ai_analysis(
-            {"商品信息": {"商品ID": "3", "商品标题": "测试商品3"}},
+            {"item_info": {"item_id": "3", "title": "测试商品3"}},
             image_paths=[],
             prompt_text="请输出 JSON",
         )
@@ -191,7 +191,7 @@ def test_get_ai_analysis_falls_back_to_responses_when_chat_completions_api_is_mi
 
     result = asyncio.run(
         ai_handler.get_ai_analysis(
-            {"商品信息": {"商品ID": "4", "商品标题": "测试商品4"}},
+            {"item_info": {"item_id": "4", "title": "测试商品4"}},
             image_paths=[],
             prompt_text="请输出 JSON",
         )
@@ -236,7 +236,7 @@ def test_get_ai_analysis_retries_without_temperature_when_gateway_rejects_it(
 
     result = asyncio.run(
         ai_handler.get_ai_analysis(
-            {"商品信息": {"商品ID": "4", "商品标题": "测试商品4"}},
+            {"item_info": {"item_id": "4", "title": "测试商品4"}},
             image_paths=[],
             prompt_text="请输出 JSON",
         )
@@ -267,7 +267,7 @@ def test_get_ai_analysis_uses_first_json_object_when_model_returns_multiple_obje
 
     result = asyncio.run(
         ai_handler.get_ai_analysis(
-            {"商品信息": {"商品ID": "5", "商品标题": "测试商品5"}},
+            {"item_info": {"item_id": "5", "title": "测试商品5"}},
             image_paths=[],
             prompt_text="请输出 JSON",
         )

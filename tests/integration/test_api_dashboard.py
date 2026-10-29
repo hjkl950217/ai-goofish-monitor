@@ -57,14 +57,14 @@ def test_dashboard_summary_aggregates_tasks_and_results(tmp_path, monkeypatch):
 
     records = [
         {
-            "爬取时间": "2026-03-10T10:00:00",
-            "搜索关键字": "apple watch",
-            "任务名称": "Apple Watch 任务",
-            "商品信息": {
-                "商品ID": "watch-1",
-                "商品标题": "Apple Watch S10",
-                "商品链接": "https://www.goofish.com/item?id=watch-1",
-                "当前售价": "¥1800",
+            "crawl_time": "2026-03-10T10:00:00",
+            "keyword": "apple watch",
+            "task_name": "Apple Watch 任务",
+            "item_info": {
+                "item_id": "watch-1",
+                "title": "Apple Watch S10",
+                "link": "https://www.goofish.com/item?id=watch-1",
+                "price": "¥1800",
             },
             "ai_analysis": {
                 "analysis_source": "ai",
@@ -73,14 +73,14 @@ def test_dashboard_summary_aggregates_tasks_and_results(tmp_path, monkeypatch):
             },
         },
         {
-            "爬取时间": "2026-03-10T11:00:00",
-            "搜索关键字": "apple watch",
-            "任务名称": "Apple Watch 任务",
-            "商品信息": {
-                "商品ID": "watch-2",
-                "商品标题": "Apple Watch S10 蜂窝版",
-                "商品链接": "https://www.goofish.com/item?id=watch-2",
-                "当前售价": "¥2100",
+            "crawl_time": "2026-03-10T11:00:00",
+            "keyword": "apple watch",
+            "task_name": "Apple Watch 任务",
+            "item_info": {
+                "item_id": "watch-2",
+                "title": "Apple Watch S10 蜂窝版",
+                "link": "https://www.goofish.com/item?id=watch-2",
+                "price": "¥2100",
             },
             "ai_analysis": {
                 "analysis_source": "keyword",

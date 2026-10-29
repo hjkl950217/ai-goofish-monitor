@@ -68,10 +68,10 @@ def _build_snapshot_record(
     run_id: str,
     snapshot_time: str,
 ) -> Optional[dict]:
-    item_id = str(item.get("商品ID") or "").strip()
-    link = str(item.get("商品链接") or "").strip()
+    item_id = str(item.get("item_id") or "").strip()
+    link = str(item.get("link") or "").strip()
     unique_id = item_id or link
-    price_value = parse_price_value(item.get("当前售价"))
+    price_value = parse_price_value(item.get("price"))
     if not unique_id or price_value is None:
         return None
 
@@ -82,13 +82,13 @@ def _build_snapshot_record(
         "task_name": task_name,
         "keyword": keyword,
         "item_id": unique_id,
-        "title": item.get("商品标题") or "",
+        "title": item.get("title") or "",
         "price": price_value,
-        "price_display": item.get("当前售价") or "",
-        "tags": item.get("商品标签") or [],
-        "region": item.get("发货地区") or "",
-        "seller": item.get("卖家昵称") or "",
-        "publish_time": item.get("发布时间") or "",
+        "price_display": item.get("price") or "",
+        "tags": item.get("tags") or [],
+        "region": item.get("shipping_area") or "",
+        "seller": item.get("seller_nickname") or "",
+        "publish_time": item.get("publish_time") or "",
         "link": link,
     }
 
@@ -362,7 +362,7 @@ def build_market_reference(
 ) -> dict:
     current_market_records = []
     for market_item in current_market_items:
-        price = parse_price_value(market_item.get("当前售价"))
+        price = parse_price_value(market_item.get("price"))
         if price is None:
             continue
         current_market_records.append({"price": price})
@@ -371,8 +371,8 @@ def build_market_reference(
     history_summary = _summarize_prices(_dedupe_latest(historical_snapshots, "item_id"))
     item_context = build_item_price_context(
         historical_snapshots,
-        item_id=str(item.get("商品ID") or ""),
-        current_price=parse_price_value(item.get("当前售价")),
+        item_id=str(item.get("item_id") or ""),
+        current_price=parse_price_value(item.get("price")),
     )
     return {
         "当前搜索样本": market_snapshot,

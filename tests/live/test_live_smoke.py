@@ -197,11 +197,11 @@ def test_live_real_traffic_task_smoke(live_server):
             assert result_data["total_items"] >= live_server.settings.expect_min_items
 
             item = result_data["items"][0]
-            product = item.get("商品信息", {})
+            product = item.get("item_info", {})
             analysis = item.get("ai_analysis", {})
-            assert product.get("商品标题"), item
-            assert product.get("商品链接"), item
-            assert product.get("当前售价"), item
+            assert product.get("title"), item
+            assert product.get("link"), item
+            assert product.get("price"), item
             assert analysis, item
             assert analysis.get("analysis_source") == "ai", item
 

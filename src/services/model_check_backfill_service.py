@@ -13,6 +13,7 @@ import sqlite3
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from src.infrastructure.persistence.record_keys import normalize_record
 from src.infrastructure.persistence.sqlite_connection import sqlite_connection
 from src.services import model_check_service
 
@@ -162,15 +163,15 @@ async def run_check(
     async def check_one(row: sqlite3.Row) -> None:
         async with semaphore:
             item_id = str(row["item_id"] or "").strip()
-            record = json.loads(row["raw_json"])
-            item = record.get("商品信息", {}) or {}
+            record = normalize_record(json.loads(row["raw_json"]))
+            item = record.get("item_info", {}) or {}
             try:
                 verdict = await model_check_service.check_item(
                     item_id=item_id,
                     task_name=str(row["task_name"] or ""),
                     target=str(row["keyword"] or ""),
-                    title=str(item.get("商品标题") or ""),
-                    description=str(item.get("商品描述") or ""),
+                    title=str(item.get("title") or ""),
+                    description=str(item.get("description") or ""),
                 )
             except Exception as exc:  # noqa: BLE001
                 verdict = {"matched": None, "reason": f"异常: {exc}", "source": "error"}

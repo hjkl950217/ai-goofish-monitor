@@ -34,15 +34,15 @@ def seeded_db(tmp_path, monkeypatch):
         )
         for item_id, title in (("1", "九号M1 85 准新车"), ("2", "九号M1 100 准新车")):
             record = {
-                "爬取时间": "2026-10-01T00:00:00",
-                "搜索关键字": TARGET,
-                "任务名称": TASK_NAME,
-                "商品信息": {
-                    "商品ID": item_id,
-                    "商品标题": title,
-                    "当前售价": "¥5000",
-                    "商品描述": "",
-                    "商品链接": f"https://www.goofish.com/item?id={item_id}",
+                "crawl_time": "2026-10-01T00:00:00",
+                "keyword": TARGET,
+                "task_name": TASK_NAME,
+                "item_info": {
+                    "item_id": item_id,
+                    "title": title,
+                    "price": "¥5000",
+                    "description": "",
+                    "link": f"https://www.goofish.com/item?id={item_id}",
                 },
             }
             conn.execute(

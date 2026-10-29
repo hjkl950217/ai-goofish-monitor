@@ -346,9 +346,9 @@ async def _notify_task_failure(
     )
 
     product_data = {
-        "商品标题": f"[任务异常] {task_name}",
-        "当前售价": "N/A",
-        "商品链接": "#",
+        "title": f"[任务异常] {task_name}",
+        "price": "N/A",
+        "link": "#",
     }
     notify_reason = (
         f"任务运行失败(已连续 {guard_result.get('consecutive_failures')}/{FAILURE_GUARD.threshold} 次): {formatted_reason}"
@@ -648,7 +648,7 @@ async def scrape_user_profile(context, user_id: str) -> dict:
             except asyncio.TimeoutError:
                 print("      [滚动超时] 商品列表可能已加载完毕。")
                 break
-        profile_data["卖家发布的商品列表"] = await _parse_user_items_data(all_items)
+        profile_data["seller_items"] = await _parse_user_items_data(all_items)
 
         # --- 任务3: 点击并采集所有评价 ---
         print("      [采集阶段] 开始采集该用户的评价列表...")
@@ -665,7 +665,7 @@ async def scrape_user_profile(context, user_id: str) -> dict:
                     print("      [滚动超时] 评价列表可能已加载完毕。")
                     break
 
-            profile_data["卖家收到的评价列表"] = await parse_ratings_data(all_ratings)
+            profile_data["seller_ratings"] = await parse_ratings_data(all_ratings)
             reputation_stats = await calculate_reputation_from_ratings(all_ratings)
             profile_data.update(reputation_stats)
         else:
@@ -1243,15 +1243,15 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0, run_summary: di
                             stop_scraping = True
                             break
 
-                        unique_key = get_link_unique_key(item_data["商品链接"])
+                        unique_key = get_link_unique_key(item_data["link"])
                         if unique_key in processed_links:
                             log_time(
-                                f"[页内进度 {i}/{total_items_on_page}] 商品 '{item_data['商品标题'][:20]}...' 已存在，跳过。"
+                                f"[页内进度 {i}/{total_items_on_page}] 商品 '{item_data['title'][:20]}...' 已存在，跳过。"
                             )
                             continue
 
                         log_time(
-                            f"[页内进度 {i}/{total_items_on_page}] 发现新商品，获取详情: {item_data['商品标题'][:30]}..."
+                            f"[页内进度 {i}/{total_items_on_page}] 发现新商品，获取详情: {item_data['title'][:30]}..."
                         )
                         # --- 修改: 访问详情页前的等待时间，模拟用户在列表页上看了一会儿 ---
                         await random_sleep(2, 4)  # 原来是 (2, 4)
@@ -1262,7 +1262,7 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0, run_summary: di
                                 lambda r: DETAIL_API_URL_PATTERN in r.url, timeout=25000
                             ) as detail_info:
                                 await detail_page.goto(
-                                    item_data["商品链接"],
+                                    item_data["link"],
                                     wait_until="domcontentloaded",
                                     timeout=25000,
                                 )
@@ -1327,17 +1327,17 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0, run_summary: di
                                     ]
                                     if all_image_urls:
                                         # 用新的字段存储图片列表，替换掉旧的单个链接
-                                        item_data["商品图片列表"] = all_image_urls
+                                        item_data["images"] = all_image_urls
                                         # (可选) 仍然保留主图链接，以防万一
-                                        item_data["商品主图链接"] = all_image_urls[0]
+                                        item_data["main_image"] = all_image_urls[0]
 
                                 # --- END: 新增代码块 ---
-                                item_data["“想要”人数"] = await safe_get(
+                                item_data["want_count"] = await safe_get(
                                     item_do,
                                     "wantCnt",
-                                    default=item_data.get("“想要”人数", "NaN"),
+                                    default=item_data.get("want_count", "NaN"),
                                 )
-                                item_data["浏览量"] = await safe_get(
+                                item_data["view_count"] = await safe_get(
                                     item_do, "browseCnt", default="-"
                                 )
                                 item_description = await safe_get(
@@ -1346,20 +1346,20 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0, run_summary: di
                                 if isinstance(item_description, str):
                                     item_description = item_description.strip()
                                 if item_description:
-                                    item_data["商品描述"] = item_description
+                                    item_data["description"] = item_description
                                 # ...[此处可添加更多从详情页解析出的商品信息]...
 
                                 user_id = await safe_get(seller_do, "sellerId")
 
                                 # 构建基础记录
                                 final_record = {
-                                    "爬取时间": datetime.now().isoformat(),
-                                    "搜索关键字": keyword,
-                                    "任务名称": task_config.get(
+                                    "crawl_time": datetime.now().isoformat(),
+                                    "keyword": keyword,
+                                    "task_name": task_config.get(
                                         "task_name", "Untitled Task"
                                     ),
-                                    "商品信息": item_data,
-                                    "卖家信息": {},
+                                    "item_info": item_data,
+                                    "seller_info": {},
                                 }
                                 price_reference = build_market_reference(
                                     keyword=keyword,
@@ -1367,7 +1367,7 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0, run_summary: di
                                     current_market_items=basic_items,
                                     historical_snapshots=historical_snapshots,
                                 )
-                                final_record["价格参考"] = price_reference
+                                final_record["price_reference"] = price_reference
                                 final_record["price_insight"] = price_reference.get(
                                     "本商品价格位置", {}
                                 )
@@ -1407,7 +1407,7 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0, run_summary: di
                                 )
                                 if AI_DEBUG_MODE:
                                     print(
-                                        f"--- [DETAIL DEBUG] FAILED RESPONSE from {item_data['商品链接']} ---"
+                                        f"--- [DETAIL DEBUG] FAILED RESPONSE from {item_data['link']} ---"
                                     )
                                     try:
                                         print(await detail_response.text())
@@ -1513,9 +1513,9 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0, run_summary: di
             try:
                 await send_ntfy_notification(
                     {
-                        "商品标题": f"[任务暂停] {task_name_for_guard}",
-                        "当前售价": "N/A",
-                        "商品链接": "#",
+                        "title": f"[任务暂停] {task_name_for_guard}",
+                        "price": "N/A",
+                        "link": "#",
                     },
                     "任务处于暂停状态，将跳过执行。\n"
                     f"原因: {decision.reason}\n"
