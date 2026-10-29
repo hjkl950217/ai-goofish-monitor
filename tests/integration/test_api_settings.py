@@ -37,6 +37,7 @@ _SETTINGS_ENV_KEYS = [
     "WEBHOOK_QUERY_PARAMETERS",
     "WEBHOOK_BODY",
     "PCURL_TO_MOBILE",
+    "NOTIFICATION_DISABLED_CHANNELS",
 ]
 
 
@@ -372,6 +373,35 @@ def test_notification_settings_fall_back_to_runtime_environment_when_env_file_mi
     assert payload["BARK_URL_SET"] is True
     assert payload["TELEGRAM_BOT_TOKEN_SET"] is True
     assert sorted(payload["CONFIGURED_CHANNELS"]) == ["bark", "ntfy", "telegram"]
+
+
+def test_notification_channel_can_be_muted_without_clearing_config(tmp_path, monkeypatch):
+    _clear_settings_env(monkeypatch)
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "\n".join(
+            [
+                "NTFY_TOPIC_URL=https://ntfy.sh/demo-topic",
+                "BARK_URL=https://api.day.app/private-key/",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(env_manager, "env_file", env_file)
+    client = _build_settings_client()
+
+    before = client.get("/api/settings/notifications").json()
+    assert sorted(before["CONFIGURED_CHANNELS"]) == ["bark", "ntfy"]
+    assert before["DISABLED_CHANNELS"] == []
+
+    response = client.put("/api/settings/notifications", json={"DISABLED_CHANNELS": ["bark"]})
+    assert response.status_code == 200
+
+    after = client.get("/api/settings/notifications").json()
+    assert after["DISABLED_CHANNELS"] == ["bark"]
+    assert after["CONFIGURED_CHANNELS"] == ["ntfy"]
+    # 配置本身没被清掉，随时可以重新打开
+    assert after["BARK_URL_SET"] is True
 
 
 def test_ai_test_endpoint_falls_back_to_responses_when_chat_completions_api_404(

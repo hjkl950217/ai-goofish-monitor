@@ -7,7 +7,10 @@ from typing import Dict, List
 
 from src.infrastructure.external.notification_clients.base import NotificationClient
 from src.infrastructure.external.notification_clients.factory import build_notification_clients
-from src.services.notification_config_service import load_notification_settings
+from src.services.notification_config_service import (
+    disabled_notification_channels,
+    load_notification_settings,
+)
 from src.services.notification_history import record
 from src.infrastructure.config.settings import NotificationSettings
 
@@ -89,6 +92,13 @@ class NotificationService:
 
 def build_notification_service(
     settings: NotificationSettings | None = None,
+    *,
+    respect_disabled: bool = True,
 ) -> NotificationService:
+    """respect_disabled=False 用于「测试此渠道」：停用的渠道也要能测通。"""
     notification_settings = settings or load_notification_settings()
-    return NotificationService(build_notification_clients(notification_settings))
+    clients = build_notification_clients(notification_settings)
+    if respect_disabled:
+        disabled = disabled_notification_channels()
+        clients = [client for client in clients if client.channel_key not in disabled]
+    return NotificationService(clients)

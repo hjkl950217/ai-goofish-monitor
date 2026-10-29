@@ -37,6 +37,26 @@ def test_notification_service_collects_success_and_failure_results():
     assert results["fail"]["message"] == "boom"
 
 
+def test_build_notification_service_skips_disabled_channels(tmp_path, monkeypatch):
+    from src.infrastructure.config.env_manager import env_manager
+    from src.services.notification_service import build_notification_service
+
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "NTFY_TOPIC_URL=https://ntfy.sh/demo\n"
+        "NOTIFICATION_DISABLED_CHANNELS=ntfy\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(env_manager, "env_file", env_file)
+
+    assert "ntfy" not in [c.channel_key for c in build_notification_service().clients]
+    # 测试渠道时不受停用开关限制
+    assert "ntfy" in [
+        c.channel_key
+        for c in build_notification_service(respect_disabled=False).clients
+    ]
+
+
 def test_webhook_client_renders_json_templates(monkeypatch):
     captured = {}
 

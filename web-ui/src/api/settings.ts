@@ -26,6 +26,7 @@ export interface NotificationSettings {
   WEBHOOK_HEADERS_SET?: boolean
   PUSHPLUS_TOKEN_SET?: boolean
   CONFIGURED_CHANNELS?: string[]
+  DISABLED_CHANNELS?: string[]
 }
 
 export interface NotificationSettingsUpdate {
@@ -46,6 +47,7 @@ export interface NotificationSettingsUpdate {
   WEBHOOK_QUERY_PARAMETERS?: string | null
   WEBHOOK_BODY?: string | null
   PCURL_TO_MOBILE?: boolean
+  DISABLED_CHANNELS?: string[]
 }
 
 export interface NotificationTestResponse {

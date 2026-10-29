@@ -39,6 +39,9 @@ const mutableForm = form as Record<string, string | boolean | null | undefined>
 const mutableClearedFields = clearedFields as Record<string, boolean>
 
 const secretFields = ['BARK_URL', 'GOTIFY_TOKEN', 'WX_BOT_URL', 'TELEGRAM_BOT_TOKEN', 'WEBHOOK_URL', 'WEBHOOK_HEADERS', 'PUSHPLUS_TOKEN'] as const
+const channelOrder: ChannelKey[] = ['ntfy', 'pushplus', 'bark', 'gotify', 'wecom', 'telegram', 'webhook']
+// 显式停用的渠道：配置保留但不发送
+const disabledChannels = ref<ChannelKey[]>([])
 const channelFields: Record<ChannelKey, (keyof NotificationSettingsUpdate)[]> = {
   ntfy: ['NTFY_TOPIC_URL'],
   pushplus: ['PUSHPLUS_TOKEN', 'PUSHPLUS_TOPIC'],
@@ -78,6 +81,8 @@ function syncFromSettings(settings: NotificationSettings) {
   secretConfigured.WEBHOOK_URL = !!settings.WEBHOOK_URL_SET
   secretConfigured.WEBHOOK_HEADERS = !!settings.WEBHOOK_HEADERS_SET
   secretConfigured.PUSHPLUS_TOKEN = !!settings.PUSHPLUS_TOKEN_SET
+
+  disabledChannels.value = (settings.DISABLED_CHANNELS ?? []) as ChannelKey[]
 
   for (const field of Object.keys(clearedFields)) {
     clearedFields[field] = false
@@ -130,8 +135,18 @@ function confirmClear() {
   clearTarget.value = null
 }
 
+function toggleChannel(channel: ChannelKey, enabled: boolean) {
+  const next = new Set(disabledChannels.value)
+  if (enabled) {
+    next.delete(channel)
+  } else {
+    next.add(channel)
+  }
+  disabledChannels.value = [...next]
+}
+
 function buildPayload(): NotificationSettingsUpdate {
-  return buildScopedPayload()
+  return { ...buildScopedPayload(), DISABLED_CHANNELS: disabledChannels.value }
 }
 
 function buildScopedPayload(channel?: ChannelKey): NotificationSettingsUpdate {
@@ -205,6 +220,9 @@ function resultClass(channel: ChannelKey) {
 }
 
 function resolveChannelBadge(channel: ChannelKey) {
+  if (disabledChannels.value.includes(channel)) {
+    return t('notifyPanel.channels.disabled')
+  }
   return isChannelConfigured(channel) ? t('common.active') : t('common.inactive')
 }
 </script>
@@ -246,6 +264,26 @@ function resolveChannelBadge(channel: ChannelKey) {
             {{ t('notifyPanel.configurationNotes') }}
           </div>
           <p class="mt-2 text-sm leading-6 text-slate-300">{{ t('notifyPanel.configurationNotesDescription') }}</p>
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card class="app-surface overflow-hidden border-none">
+      <CardHeader>
+        <CardTitle>{{ t('notifyPanel.channels.title') }}</CardTitle>
+        <CardDescription>{{ t('notifyPanel.channels.description') }}</CardDescription>
+      </CardHeader>
+      <CardContent class="flex flex-wrap gap-3">
+        <div
+          v-for="channel in channelOrder"
+          :key="channel"
+          class="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5"
+        >
+          <Switch
+            :model-value="!disabledChannels.includes(channel)"
+            @update:model-value="(value) => toggleChannel(channel, !!value)"
+          />
+          <Label class="text-sm text-slate-700">{{ t(`notifyPanel.channels.${channel}`) }}</Label>
         </div>
       </CardContent>
     </Card>

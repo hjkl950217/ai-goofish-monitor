@@ -80,6 +80,9 @@ URL_FIELDS = {
 ALLOWED_WEBHOOK_METHODS = {"GET", "POST"}
 ALLOWED_WEBHOOK_CONTENT_TYPES = {"JSON", "FORM"}
 
+# 显式停用的渠道，配置保留但不发送。默认空，兼容旧行为（有值即启用）
+DISABLED_CHANNELS_KEY = "NOTIFICATION_DISABLED_CHANNELS"
+
 
 class NotificationSettingsValidationError(ValueError):
     """通知配置校验错误"""
@@ -89,6 +92,12 @@ def model_dump(model, *, exclude_unset: bool = False) -> dict:
     if hasattr(model, "model_dump"):
         return model.model_dump(exclude_unset=exclude_unset)
     return model.dict(exclude_unset=exclude_unset)
+
+
+def disabled_notification_channels() -> set[str]:
+    """站内显式停用的渠道集合"""
+    raw = env_manager.get_value(DISABLED_CHANNELS_KEY, "") or ""
+    return {item.strip() for item in str(raw).split(",") if item.strip()}
 
 
 def build_notification_settings_response(
@@ -120,6 +129,7 @@ def build_notification_settings_response(
     for field in SECRET_NOTIFICATION_FIELDS:
         attr_name = NOTIFICATION_FIELD_MAP[field]
         response[f"{field}_SET"] = bool(getattr(notification_settings, attr_name))
+    response["DISABLED_CHANNELS"] = sorted(disabled_notification_channels())
     response["CONFIGURED_CHANNELS"] = build_configured_channels(notification_settings)
     return response
 
@@ -161,7 +171,8 @@ def build_configured_channels(
         channels.append("telegram")
     if notification_settings.webhook_url:
         channels.append("webhook")
-    return channels
+    disabled = disabled_notification_channels()
+    return [channel for channel in channels if channel not in disabled]
 
 
 def prepare_notification_settings_update(

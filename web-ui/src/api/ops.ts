@@ -4,6 +4,15 @@ export interface OpsConfig {
   AGM_DEBUG_CAPTURE: string
   AGM_BROWSER_TRACE: string
   AGM_TRACE_DIR: string
+  // 任务运行选项：保存后对下一个任务生效
+  KEEP_TASK_IMAGES: boolean
+  REFRESH_TRACKED_ITEMS: boolean
+  AI_DEBUG_MODE: boolean
+  ENABLE_THINKING: boolean
+  ENABLE_RESPONSE_FORMAT: boolean
+  TASK_FAILURE_THRESHOLD: number
+  TASK_FAILURE_PAUSE_SECONDS: number
+  TASK_LOG_RETENTION_DAYS: number
 }
 
 export interface TraceFile {

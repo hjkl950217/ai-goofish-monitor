@@ -29,6 +29,7 @@ from src.services.ai_request_compat import (
 )
 from src.services.ai_response_parser import extract_ai_response_content
 from src.services.notification_config_service import (
+    DISABLED_CHANNELS_KEY,
     NotificationSettingsValidationError,
     build_configured_channels,
     build_notification_settings_response,
@@ -94,6 +95,8 @@ class NotificationSettingsModel(BaseModel):
     WEBHOOK_QUERY_PARAMETERS: Optional[str] = None
     WEBHOOK_BODY: Optional[str] = None
     PCURL_TO_MOBILE: Optional[bool] = None
+    # 显式停用的渠道：配置保留但不发送
+    DISABLED_CHANNELS: Optional[list[str]] = None
 
 
 class NotificationTestRequest(BaseModel):
@@ -148,6 +151,11 @@ async def update_notification_settings(settings: NotificationSettingsModel):
     except NotificationSettingsValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    if settings.DISABLED_CHANNELS is not None:
+        updates[DISABLED_CHANNELS_KEY] = ",".join(
+            sorted({channel.strip() for channel in settings.DISABLED_CHANNELS if channel.strip()})
+        )
+
     success = env_manager.apply_changes(updates=updates, deletions=deletions)
     if not success:
         raise HTTPException(status_code=500, detail="更新通知设置失败")
@@ -170,7 +178,7 @@ async def test_notification_settings(payload: NotificationTestRequest):
     except NotificationSettingsValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    service = build_notification_service(merged_settings)
+    service = build_notification_service(merged_settings, respect_disabled=False)
     if not service.clients:
         if payload.channel:
             raise HTTPException(
@@ -312,6 +320,7 @@ async def get_system_status(
     openai_model_name = env_manager.get_value("OPENAI_MODEL_NAME", "")
     ai_settings = AISettings()
     notification_settings = load_notification_settings()
+    configured_channels = build_configured_channels(notification_settings)
     running_task_ids = [
         task_id
         for task_id, process in process_service.processes.items()
@@ -320,7 +329,7 @@ async def get_system_status(
 
     return {
         "ai_configured": ai_settings.is_configured(),
-        "notification_configured": notification_settings.has_any_notification_enabled(),
+        "notification_configured": bool(configured_channels),
         "headless_mode": scraper_settings.run_headless,
         "running_in_docker": scraper_settings.running_in_docker,
         "scraper_running": len(running_task_ids) > 0,
@@ -336,7 +345,7 @@ async def get_system_status(
             "openai_model_name_set": bool(openai_model_name),
             **build_notification_status_flags(notification_settings),
         },
-        "configured_notification_channels": build_configured_channels(notification_settings),
+        "configured_notification_channels": configured_channels,
         "app": {
             "version": os.getenv("APP_VERSION", "").strip() or None,
             "uptime_seconds": int(time.time() - _PROCESS_START),
