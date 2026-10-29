@@ -8,6 +8,7 @@ from typing import Dict, List
 from src.infrastructure.external.notification_clients.base import NotificationClient
 from src.infrastructure.external.notification_clients.factory import build_notification_clients
 from src.services.notification_config_service import load_notification_settings
+from src.services.notification_history import record
 from src.infrastructure.config.settings import NotificationSettings
 
 
@@ -21,6 +22,8 @@ class NotificationService:
         self,
         product_data: Dict,
         reason: str,
+        *,
+        is_test: bool = False,
     ) -> Dict[str, Dict[str, str | bool]]:
         """
         发送通知到所有启用的渠道
@@ -32,7 +35,7 @@ class NotificationService:
             return {}
 
         tasks = [
-            self._send_with_result(client, product_data, reason)
+            self._send_with_result(client, product_data, reason, is_test=is_test)
             for client in self.clients
         ]
         results = await asyncio.gather(*tasks)
@@ -47,6 +50,7 @@ class NotificationService:
         return await self.send_notification(
             test_product,
             "这是一条测试通知，用于验证推送渠道是否可用。",
+            is_test=True,
         )
 
     async def _send_with_result(
@@ -54,22 +58,33 @@ class NotificationService:
         client: NotificationClient,
         product_data: Dict,
         reason: str,
+        *,
+        is_test: bool = False,
     ) -> Dict[str, str | bool]:
         try:
             await client.send(product_data, reason)
-            return {
+            result: Dict[str, str | bool] = {
                 "channel": client.channel_key,
                 "label": client.display_name,
                 "success": True,
                 "message": "发送成功",
             }
         except Exception as exc:
-            return {
+            result = {
                 "channel": client.channel_key,
                 "label": client.display_name,
                 "success": False,
                 "message": str(exc),
             }
+        record(
+            channel=client.channel_key,
+            label=client.display_name,
+            success=bool(result["success"]),
+            message=str(result["message"]),
+            title=str(product_data.get("商品标题", "")),
+            is_test=is_test,
+        )
+        return result
 
 
 def build_notification_service(

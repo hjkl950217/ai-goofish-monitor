@@ -681,10 +681,12 @@ async def scrape_user_profile(context, user_id: str) -> dict:
     return profile_data
 
 
-async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
+async def scrape_xianyu(task_config: dict, debug_limit: int = 0, run_summary: dict | None = None):
     """
     【核心执行器】
     根据单个任务配置，异步爬取闲鱼商品数据，并对每个新发现的商品进行实时的、独立的AI分析和通知。
+
+    run_summary 传入 dict 时，会写入本次运行的统计与空结果原因，供调度器展示。
     """
     keyword = task_config["keyword"]
     max_pages = task_config.get("max_pages", 1)
@@ -777,7 +779,7 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
     pending_states: dict = {}
 
     async def _run_scrape_attempt(
-        state_file: str, proxy_server: Optional[str], pending: dict
+        state_file: str, proxy_server: Optional[str], pending: dict, stats: dict
     ) -> int:
         processed_item_count = 0
         stop_scraping = False
@@ -1217,7 +1219,10 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                         await current_response.json(), f"第 {page_num} 页"
                     )
                     if not basic_items:
+                        stats["empty_pages"] += 1
                         break
+                    stats["pages_with_items"] += 1
+                    stats["items_seen"] += len(basic_items)
                     historical_snapshots.extend(
                         record_market_snapshots(
                             keyword=keyword,
@@ -1477,6 +1482,7 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
         return processed_item_count
 
     processed_item_count = 0
+    stats = {"items_seen": 0, "pages_with_items": 0, "empty_pages": 0}
     attempt_limit = max(
         rotation_settings["account_retry_limit"],
         rotation_settings["proxy_retry_limit"],
@@ -1564,7 +1570,7 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
 
         try:
             processed_item_count += await _run_scrape_attempt(
-                state_path, proxy_server, pending_states
+                state_path, proxy_server, pending_states, stats
             )
             last_error = ""
             FAILURE_GUARD.record_success(task_name_for_guard)
@@ -1592,6 +1598,17 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
 
     # 清理任务图片目录
     cleanup_task_images(task_config.get("task_name", "default"))
+
+    if run_summary is not None:
+        run_summary["items_seen"] = stats["items_seen"]
+        if processed_item_count > 0:
+            run_summary["reason"] = ""
+        elif stats["items_seen"] == 0:
+            # 搜索接口没返回任何商品，或解析出来是空的
+            run_summary["reason"] = "search_empty"
+        else:
+            # 抓到了商品但一条都没入库：被筛选规则挡掉，或分析阶段未处理
+            run_summary["reason"] = "all_filtered"
 
     if last_error:
         # 带上真实错误抛出，避免调用方把「抓取失败」当成「0 条新商品」

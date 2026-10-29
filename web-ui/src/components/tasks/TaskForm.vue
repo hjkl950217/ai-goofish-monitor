@@ -270,11 +270,11 @@ function handleSubmit() {
   <form id="task-form" @submit.prevent="handleSubmit">
     <div class="grid gap-6 py-4">
       <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label for="task-name" class="sm:text-right">{{ t('tasks.form.taskName') }}</Label>
+        <Label for="task-name" class="sm:text-right">{{ t('tasks.form.taskName') }} <span class="text-rose-500">*</span></Label>
         <Input id="task-name" v-model="form.task_name" class="sm:col-span-3" :placeholder="t('tasks.form.taskNamePlaceholder')" required />
       </div>
       <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label for="keyword" class="sm:text-right">{{ t('tasks.form.keyword') }}</Label>
+        <Label for="keyword" class="sm:text-right">{{ t('tasks.form.keyword') }} <span class="text-rose-500">*</span></Label>
         <Input id="keyword" v-model="form.keyword" class="sm:col-span-3" :placeholder="t('tasks.form.keywordPlaceholder')" required />
       </div>
       <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
@@ -292,7 +292,7 @@ function handleSubmit() {
         </div>
       </div>
       <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label for="description" class="sm:text-right">{{ t('tasks.form.description') }}</Label>
+        <Label for="description" class="sm:text-right">{{ t('tasks.form.description') }} <span v-if="form.decision_mode !== 'keyword'" class="text-rose-500">*</span></Label>
         <div class="space-y-1 sm:col-span-3">
           <Textarea
             id="description"

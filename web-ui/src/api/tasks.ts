@@ -18,6 +18,8 @@ export interface TaskRunStatus {
   item_count: number
   finished_at: string
   error?: string | null
+  reason?: string | null
+  items_seen?: number
 }
 
 export async function getLastRuns(): Promise<Record<string, TaskRunStatus>> {

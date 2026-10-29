@@ -195,9 +195,18 @@ async def main():
             pass
 
     tasks = []
+    run_summaries: list[dict] = []
     for task_conf in active_task_configs:
         print(f"-> 任务 '{task_conf['task_name']}' 已加入执行队列。")
-        tasks.append(asyncio.create_task(scrape_xianyu(task_config=task_conf, debug_limit=args.debug_limit)))
+        summary: dict = {}
+        run_summaries.append(summary)
+        tasks.append(asyncio.create_task(
+            scrape_xianyu(
+                task_config=task_conf,
+                debug_limit=args.debug_limit,
+                run_summary=summary,
+            )
+        ))
 
     async def _shutdown_watcher():
         await stop_event.wait()
@@ -246,6 +255,8 @@ async def main():
                 task_name=task_name,
                 status="ok" if count else "empty",
                 item_count=count,
+                reason=run_summaries[0].get("reason") or None,
+                items_seen=run_summaries[0].get("items_seen", 0),
             )
 
     return failed

@@ -1,7 +1,10 @@
 """
 设置管理路由
 """
+import glob
 import os
+import shutil
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -191,6 +194,14 @@ async def test_notification_settings(payload: NotificationTestRequest):
     }
 
 
+@router.get("/notifications/history")
+async def get_notification_history(limit: int = 50):
+    """最近的发送记录（含失败），排查「为什么没收到通知」用"""
+    from src.services.notification_history import read_recent
+
+    return {"records": read_recent(max(1, min(limit, 200)))}
+
+
 @router.get("/rotation")
 async def get_rotation_settings():
     return {
@@ -221,6 +232,72 @@ async def update_rotation_settings(settings: RotationSettingsModel):
         raise HTTPException(status_code=500, detail="更新轮换设置失败")
     _reload_env()
     return {"message": "轮换设置已成功更新"}
+
+
+_PROCESS_START = time.time()
+
+
+def _disk_summary() -> Optional[dict]:
+    try:
+        usage = shutil.disk_usage(".")
+    except OSError:
+        return None
+    used_percent = round(usage.used / usage.total * 100, 1) if usage.total else 0
+    return {
+        "total_bytes": usage.total,
+        "free_bytes": usage.free,
+        "used_percent": used_percent,
+    }
+
+
+def _database_summary() -> dict:
+    from src.infrastructure.persistence.sqlite_connection import get_database_path
+
+    path = get_database_path()
+    size = os.path.getsize(path) if os.path.exists(path) else 0
+    return {"path": path, "size_bytes": size}
+
+
+def _backup_summary() -> dict:
+    files = sorted(glob.glob(os.path.join("data", "backups", "app-*.sqlite3")))
+    return {
+        "count": len(files),
+        "latest": os.path.basename(files[-1]) if files else None,
+    }
+
+
+def _accounts_summary() -> dict:
+    from src.services.account_state_store import read_expiry
+
+    raw_dir = (env_manager.get_value("ACCOUNT_STATE_DIR", "state") or "state").strip()
+    state_dir = raw_dir.strip("\"'")
+    if not os.path.isdir(state_dir):
+        return {"count": 0, "nearest_expires_at": None}
+    count = 0
+    expiries = []
+    for name in sorted(os.listdir(state_dir)):
+        if not name.endswith(".json"):
+            continue
+        count += 1
+        try:
+            expires_at = read_expiry(os.path.join(state_dir, name))
+        except Exception:
+            expires_at = None
+        if expires_at:
+            expiries.append(expires_at)
+    return {
+        "count": count,
+        "nearest_expires_at": min(expiries) if expiries else None,
+    }
+
+
+def _frontend_built_at() -> Optional[str]:
+    path = os.path.join("dist", "index.html")
+    if not os.path.exists(path):
+        return None
+    from datetime import datetime
+
+    return datetime.fromtimestamp(os.path.getmtime(path)).isoformat(timespec="seconds")
 
 
 @router.get("/status")
@@ -260,6 +337,15 @@ async def get_system_status(
             **build_notification_status_flags(notification_settings),
         },
         "configured_notification_channels": build_configured_channels(notification_settings),
+        "app": {
+            "version": os.getenv("APP_VERSION", "").strip() or None,
+            "uptime_seconds": int(time.time() - _PROCESS_START),
+            "frontend_built_at": _frontend_built_at(),
+        },
+        "disk": _disk_summary(),
+        "database": _database_summary(),
+        "backups": _backup_summary(),
+        "accounts": _accounts_summary(),
     }
 
 

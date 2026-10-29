@@ -8,7 +8,7 @@ import types
 def test_cli_runs_single_task_with_prompt(tmp_path, load_json_fixture, monkeypatch):
     fake_scraper = types.ModuleType("src.scraper")
 
-    async def placeholder_scrape(task_config, debug_limit):
+    async def placeholder_scrape(task_config, debug_limit, run_summary=None):
         return 0
 
     fake_scraper.scrape_xianyu = placeholder_scrape
@@ -42,7 +42,7 @@ def test_cli_runs_single_task_with_prompt(tmp_path, load_json_fixture, monkeypat
 
     called = []
 
-    async def fake_scrape_xianyu(task_config, debug_limit):
+    async def fake_scrape_xianyu(task_config, debug_limit, run_summary=None):
         called.append(task_config["task_name"])
         assert "{{CRITERIA_SECTION}}" not in task_config["ai_prompt_text"]
         assert "Criteria text for A7M4." in task_config["ai_prompt_text"]
@@ -59,7 +59,7 @@ def test_cli_runs_single_task_with_prompt(tmp_path, load_json_fixture, monkeypat
 def test_cli_runs_keyword_mode_without_prompt_files(tmp_path, load_json_fixture, monkeypatch):
     fake_scraper = types.ModuleType("src.scraper")
 
-    async def placeholder_scrape(task_config, debug_limit):
+    async def placeholder_scrape(task_config, debug_limit, run_summary=None):
         return 0
 
     fake_scraper.scrape_xianyu = placeholder_scrape
@@ -83,7 +83,7 @@ def test_cli_runs_keyword_mode_without_prompt_files(tmp_path, load_json_fixture,
 
     captured = []
 
-    async def fake_scrape_xianyu(task_config, debug_limit):
+    async def fake_scrape_xianyu(task_config, debug_limit, run_summary=None):
         captured.append(task_config)
         return 1
 

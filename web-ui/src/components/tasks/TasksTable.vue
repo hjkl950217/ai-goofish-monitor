@@ -29,11 +29,22 @@ import {
 } from 'lucide-vue-next'
 import { formatCountdown, formatNextRunAbsolute } from '@/lib/taskSchedule'
 
+interface TaskRunInfo {
+  task_id?: number
+  task_name?: string
+  status: string
+  item_count: number
+  finished_at: string
+  error?: string | null
+  reason?: string | null
+  items_seen?: number
+}
+
 interface Props {
   tasks: Task[]
   isLoading: boolean
   stoppingIds?: Set<number>
-  lastRuns?: Record<string, { status: string; item_count: number; finished_at: string; error?: string | null }>
+  lastRuns?: Record<string, TaskRunInfo>
 }
 
 const props = defineProps<Props>()
@@ -45,8 +56,10 @@ const lastRunText = (id: number) => {
   if (!run?.finished_at) return ''
   const time = run.finished_at.slice(5, 16).replace('T', ' ')
   if (run.status === 'failed') return t('tasks.table.lastRunFailed', { time })
-  if (!run.item_count) return t('tasks.table.lastRunEmpty', { time })
-  return t('tasks.table.lastRun', { time, count: run.item_count })
+  if (run.item_count) return t('tasks.table.lastRun', { time, count: run.item_count })
+  if (run.reason === 'search_empty') return t('tasks.table.lastRunSearchEmpty', { time })
+  if (run.reason === 'all_filtered') return t('tasks.table.lastRunFiltered', { time, count: run.items_seen ?? 0 })
+  return t('tasks.table.lastRunEmpty', { time })
 }
 const isKeywordMode = (task: Task) => task.decision_mode === 'keyword'
 const nowMs = ref(Date.now())
@@ -158,6 +171,7 @@ const emit = defineEmits<{
               <Switch
                 :model-value="task.enabled"
                 class="data-[state=checked]:bg-primary"
+                :title="t('tasks.table.enabledHint')"
                 @update:model-value="(val: boolean) => emit('toggle-enabled', task, val)"
               />
               <Badge
@@ -349,6 +363,7 @@ const emit = defineEmits<{
                 <Switch
                   :model-value="task.enabled"
                   class="data-[state=checked]:bg-primary scale-90"
+                  :title="t('tasks.table.enabledHint')"
                   @update:model-value="(val: boolean) => emit('toggle-enabled', task, val)"
                 />
                 <div class="flex items-center gap-1.5">

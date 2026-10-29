@@ -92,6 +92,28 @@ export interface SystemStatus {
   notification_configured?: boolean
   headless_mode?: boolean
   running_in_docker?: boolean
+  app?: {
+    version: string | null
+    uptime_seconds: number
+    frontend_built_at: string | null
+  }
+  disk?: {
+    total_bytes: number
+    free_bytes: number
+    used_percent: number
+  } | null
+  database?: {
+    path: string
+    size_bytes: number
+  }
+  backups?: {
+    count: number
+    latest: string | null
+  }
+  accounts?: {
+    count: number
+    nearest_expires_at: number | null
+  }
   login_state_file: {
     exists: boolean
     path: string
@@ -173,6 +195,20 @@ export async function testAiSettings(
 
 export async function getSystemStatus(): Promise<SystemStatus> {
   return await http('/api/settings/status')
+}
+
+export interface NotificationHistoryItem {
+  time: string
+  channel: string
+  label: string
+  success: boolean
+  message: string
+  title: string
+  is_test: boolean
+}
+
+export async function getNotificationHistory(limit: number = 50): Promise<{ records: NotificationHistoryItem[] }> {
+  return await http('/api/settings/notifications/history', { params: { limit } })
 }
 
 export async function updateLoginState(content: string): Promise<{ message: string }> {

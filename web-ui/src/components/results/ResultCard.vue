@@ -296,8 +296,8 @@ async function onToggleFavorite() {
         <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-slate-600">
           <span class="flex items-center gap-1.5 min-w-0">
             <CalendarDays class="w-3.5 h-3.5 shrink-0 text-slate-400" />
-            <span class="shrink-0 text-slate-400">{{ t('results.card.publishTime') }}</span>
-            <span class="truncate font-semibold">{{ publishTime || '—' }}</span>
+            <span class="min-w-0 truncate text-slate-400">{{ t('results.card.publishTime') }}</span>
+            <span class="shrink-0 font-semibold">{{ publishTime || '—' }}</span>
           </span>
           <span class="flex items-center gap-1.5 min-w-0">
             <MapPin class="w-3.5 h-3.5 shrink-0 text-slate-400" />
@@ -315,7 +315,7 @@ async function onToggleFavorite() {
             <span class="truncate font-semibold">{{ hasValue(wantCount) ? wantCount : '—' }}</span>
           </span>
         </div>
-        <div v-if="productTags.length" class="mt-2 flex flex-wrap gap-1">
+        <div class="mt-2 flex min-h-[22px] flex-wrap gap-1">
           <span
             v-for="tag in productTags"
             :key="tag"

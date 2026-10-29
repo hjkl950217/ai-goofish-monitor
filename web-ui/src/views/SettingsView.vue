@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSettings } from '@/composables/useSettings'
 import type { NotificationSettingsUpdate, NotificationTestResponse } from '@/api/settings'
+import { getNotificationHistory, type NotificationHistoryItem } from '@/api/settings'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,6 +19,33 @@ import type { ModelCheckStatus } from '@/api/modelCheck'
 import NotificationSettingsPanel from '@/components/settings/NotificationSettingsPanel.vue'
 import RotationSettingsPanel from '@/components/settings/RotationSettingsPanel.vue'
 const { t } = useI18n()
+
+function formatBytes(bytes?: number | null) {
+  if (!bytes || bytes < 0) return '—'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let index = 0
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024
+    index += 1
+  }
+  return `${index === 0 ? value : value.toFixed(1)} ${units[index]}`
+}
+
+function formatNearestExpiry(timestamp?: number | null) {
+  if (!timestamp) return t('settings.status.noAccounts')
+  const days = Math.ceil((timestamp * 1000 - Date.now()) / 86400000)
+  if (days <= 0) return t('accounts.list.expiryExpired')
+  return t('settings.status.nearestExpiry', { days })
+}
+
+function expiryTone(timestamp?: number | null) {
+  if (!timestamp) return 'text-gray-500'
+  const days = Math.ceil((timestamp * 1000 - Date.now()) / 86400000)
+  if (days <= 3) return 'text-rose-600 font-semibold'
+  if (days <= 7) return 'text-amber-600'
+  return 'text-green-700'
+}
 
 const {
   notificationSettings,
@@ -55,6 +83,17 @@ function notifyError(title: string, description?: string) {
   toast({ title, description, variant: 'destructive' })
 }
 
+const notificationHistory = ref<NotificationHistoryItem[]>([])
+
+async function loadNotificationHistory() {
+  try {
+    const data = await getNotificationHistory(30)
+    notificationHistory.value = data.records ?? []
+  } catch {
+    notificationHistory.value = []
+  }
+}
+
 async function handleSaveNotifications(payload: NotificationSettingsUpdate) {
   try {
     await saveNotificationSettings(payload)
@@ -70,6 +109,7 @@ async function handleTestNotification(payload: {
 }): Promise<NotificationTestResponse> {
   try {
     const result = await testNotification(payload)
+    await loadNotificationHistory()
     return result
   } catch (e) {
     notifyError(t('settings.notifications.testFailed'), (e as Error).message)
@@ -158,7 +198,10 @@ async function handleCancelModelCheck() {
   }
 }
 
-onMounted(refreshModelCheckStatus)
+onMounted(() => {
+  refreshModelCheckStatus()
+  loadNotificationHistory()
+})
 onUnmounted(() => {
   if (pollTimer !== null) window.clearTimeout(pollTimer)
 })
@@ -392,6 +435,43 @@ watch(selectedPrompt, async (value) => {
           :save-settings="handleSaveNotifications"
           :test-settings="handleTestNotification"
         />
+
+        <Card class="mt-4">
+          <CardHeader>
+            <CardTitle>{{ t('settings.notificationHistory.title') }}</CardTitle>
+            <CardDescription>{{ t('settings.notificationHistory.description') }}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p v-if="notificationHistory.length === 0" class="text-sm text-gray-500">
+              {{ t('settings.notificationHistory.empty') }}
+            </p>
+            <ul v-else class="divide-y divide-slate-100">
+              <li
+                v-for="(item, index) in notificationHistory"
+                :key="`${item.time}-${item.channel}-${index}`"
+                class="flex items-center justify-between gap-3 py-2 text-sm"
+              >
+                <span class="min-w-0 truncate">
+                  <span class="font-medium">{{ item.label || item.channel }}</span>
+                  <span class="text-gray-500"> · {{ item.title || '—' }}</span>
+                  <span v-if="item.is_test" class="ml-1 rounded bg-slate-100 px-1 text-[10px] text-slate-500">
+                    {{ t('settings.notificationHistory.test') }}
+                  </span>
+                </span>
+                <span class="flex shrink-0 items-center gap-2">
+                  <span class="text-xs text-gray-400">{{ item.time.replace('T', ' ') }}</span>
+                  <span
+                    class="text-xs font-bold"
+                    :class="item.success ? 'text-green-600' : 'text-rose-600'"
+                    :title="item.message"
+                  >
+                    {{ item.success ? t('settings.notificationHistory.sent') : t('settings.notificationHistory.failed') }}
+                  </span>
+                </span>
+              </li>
+            </ul>
+          </CardContent>
+        </Card>
       </TabsContent>
 
       <!-- Status Tab -->
@@ -451,6 +531,63 @@ watch(selectedPrompt, async (value) => {
                     </div>
                 </div>
               </div>
+
+              <!-- Runtime, Storage & Accounts -->
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div class="p-3 border rounded-lg">
+                  <div class="flex justify-between items-center">
+                    <span class="font-medium text-sm">{{ t('settings.status.version') }}</span>
+                    <span class="text-xs font-bold text-gray-600">{{ systemStatus.app?.version || t('settings.status.unknown') }}</span>
+                  </div>
+                  <p class="mt-1 text-xs text-gray-500">
+                    {{ t('settings.status.uptime', { hours: Math.floor((systemStatus.app?.uptime_seconds || 0) / 3600) }) }}
+                  </p>
+                  <p v-if="systemStatus.app?.frontend_built_at" class="text-xs text-gray-500">
+                    {{ t('settings.status.frontendBuilt') }}：{{ systemStatus.app.frontend_built_at.replace('T', ' ') }}
+                  </p>
+                </div>
+
+                <div class="p-3 border rounded-lg">
+                  <div class="flex justify-between items-center">
+                    <span class="font-medium text-sm">{{ t('settings.status.database') }}</span>
+                    <span class="text-xs font-bold text-gray-600">{{ formatBytes(systemStatus.database?.size_bytes) }}</span>
+                  </div>
+                  <p class="mt-1 break-all text-xs text-gray-500">{{ systemStatus.database?.path }}</p>
+                </div>
+
+                <div class="p-3 border rounded-lg">
+                  <div class="flex justify-between items-center">
+                    <span class="font-medium text-sm">{{ t('settings.status.backups') }}</span>
+                    <span class="text-xs font-bold" :class="systemStatus.backups?.count ? 'text-green-700' : 'text-amber-700'">
+                      {{ systemStatus.backups?.count
+                        ? t('settings.status.backupsCount', { count: systemStatus.backups.count })
+                        : t('settings.status.noBackup') }}
+                    </span>
+                  </div>
+                  <p v-if="systemStatus.backups?.latest" class="mt-1 break-all text-xs text-gray-500">
+                    {{ t('settings.status.backupsLatest') }}：{{ systemStatus.backups.latest }}
+                  </p>
+                </div>
+
+                <div class="p-3 border rounded-lg">
+                  <div class="flex justify-between items-center">
+                    <span class="font-medium text-sm">{{ t('settings.status.accounts') }}</span>
+                    <span class="text-xs font-bold text-gray-600">
+                      {{ t('settings.status.accountsCount', { count: systemStatus.accounts?.count ?? 0 }) }}
+                    </span>
+                  </div>
+                  <p class="mt-1 text-xs" :class="expiryTone(systemStatus.accounts?.nearest_expires_at)">
+                    {{ formatNearestExpiry(systemStatus.accounts?.nearest_expires_at) }}
+                  </p>
+                </div>
+              </div>
+
+              <p v-if="systemStatus.disk" class="text-xs text-gray-500">
+                {{ t('settings.status.diskUsage', {
+                  percent: systemStatus.disk.used_percent,
+                  free: formatBytes(systemStatus.disk.free_bytes),
+                }) }}
+              </p>
             </div>
             <div v-else class="text-center py-8 text-gray-500">
                 {{ t('settings.status.fetching') }}

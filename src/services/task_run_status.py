@@ -23,12 +23,16 @@ def write_run_status(
     status: str,
     item_count: int = 0,
     error: Optional[str] = None,
+    reason: Optional[str] = None,
+    items_seen: int = 0,
 ) -> None:
     payload = {
         "task_name": task_name,
         "status": status,
         "item_count": item_count,
         "error": error,
+        "reason": reason,
+        "items_seen": items_seen,
         "finished_at": datetime.now().isoformat(timespec="seconds"),
     }
     try:
