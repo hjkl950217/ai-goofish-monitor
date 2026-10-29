@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import DashboardTaskSearch from '@/components/layout/DashboardTaskSearch.vue'
@@ -7,7 +7,6 @@ import LocaleToggle from '@/components/layout/LocaleToggle.vue'
 import { 
   Zap, 
   Bell, 
-  Search, 
   UserCircle,
   HelpCircle,
   Menu
@@ -19,7 +18,6 @@ import { useI18n } from 'vue-i18n'
 const router = useRouter()
 const route = useRoute()
 const { toggleMobileNav } = useMobileNav()
-const inactiveSearchValue = ref('')
 const { t } = useI18n()
 
 const isDashboard = computed(() => route.name === 'Dashboard')
@@ -48,7 +46,7 @@ function goPrompts() {
       <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20 transition-transform group-hover:rotate-12">
         <Zap class="w-5 h-5 text-white fill-white" />
       </div>
-      <h1 class="text-lg font-black text-slate-800 tracking-tighter">
+      <h1 class="text-base sm:text-lg font-black text-slate-800 tracking-tighter whitespace-nowrap">
         AI <span class="text-primary">Xianyu</span> Hunter
       </h1>
       <Badge variant="outline" class="ml-2 text-[10px] font-bold border-primary/20 text-primary bg-primary/5 uppercase tracking-widest hidden sm:flex">
@@ -57,22 +55,8 @@ function goPrompts() {
     </RouterLink>
 
     <!-- Search & Navigation -->
-    <div class="hidden md:flex flex-grow max-w-md mx-8">
-      <DashboardTaskSearch v-if="isDashboard" />
-      <div v-else class="relative w-full group">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 transition-colors" />
-        <input 
-          type="text" 
-          v-model="inactiveSearchValue"
-          readonly
-          aria-disabled="true"
-          :placeholder="t('header.searchUnavailable')"
-          class="w-full h-10 pl-10 pr-4 bg-slate-100/50 border border-slate-200/50 rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white focus:border-primary/50"
-        />
-        <kbd class="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded border border-slate-300 bg-white text-[10px] text-slate-400 font-sans shadow-sm pointer-events-none">
-          /
-        </kbd>
-      </div>
+    <div v-if="isDashboard" class="hidden md:flex flex-grow max-w-md mx-8">
+      <DashboardTaskSearch />
     </div>
 
     <!-- Actions -->

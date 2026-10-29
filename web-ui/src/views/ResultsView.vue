@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import { useResults } from '@/composables/useResults'
 import ResultsFilterBar from '@/components/results/ResultsFilterBar.vue'
 import ResultsGrid from '@/components/results/ResultsGrid.vue'
@@ -18,6 +19,8 @@ import {
 } from '@/components/ui/dialog'
 
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
 
 const {
   files,
@@ -125,6 +128,42 @@ async function handleSaveBlacklistRules() {
     })
   }
 }
+
+// 筛选与排序状态写进地址栏，刷新、分享、后退都能回到同一视图
+function syncQuery() {
+  const query: Record<string, string> = {}
+  if (selectedFile.value) query.file = selectedFile.value
+  if (filters.ai_recommended_only) query.ai = '1'
+  if (filters.keyword_recommended_only) query.keyword = '1'
+  if (filters.include_hidden) query.hidden = '1'
+  if (filters.sort_by !== 'publish_time') query.sort = filters.sort_by
+  if (filters.sort_order !== 'desc') query.order = filters.sort_order
+  router.replace({ query })
+}
+
+function applyQuery() {
+  const q = route.query
+  if (typeof q.file === 'string' && q.file) selectedFile.value = q.file
+  if (q.ai === '1') filters.ai_recommended_only = true
+  if (q.keyword === '1') filters.keyword_recommended_only = true
+  if (q.hidden === '1') filters.include_hidden = true
+  if (typeof q.sort === 'string' && q.sort) filters.sort_by = q.sort as typeof filters.sort_by
+  if (q.order === 'asc' || q.order === 'desc') filters.sort_order = q.order
+}
+
+onMounted(applyQuery)
+
+watch(
+  [
+    selectedFile,
+    () => filters.ai_recommended_only,
+    () => filters.keyword_recommended_only,
+    () => filters.include_hidden,
+    () => filters.sort_by,
+    () => filters.sort_order,
+  ],
+  () => syncQuery(),
+)
 </script>
 
 <template>

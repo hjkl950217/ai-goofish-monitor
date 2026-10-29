@@ -263,7 +263,7 @@ function handleToggleKeywordRecommended(value: boolean) {
         </div>
       </div>
 
-      <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
+      <div class="flex flex-wrap gap-2 lg:justify-end">
         <Button @click="emit('refresh')" :disabled="props.isLoading">
           {{ t('common.refresh') }}
         </Button>

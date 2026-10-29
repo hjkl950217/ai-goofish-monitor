@@ -194,9 +194,9 @@ onMounted(fetchAccounts)
                 {{ t('accounts.list.expiry') }}：{{ formatExpiry(account.expires_at) }}
               </p>
             </div>
-            <div class="mt-4 flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" class="flex-1 min-w-[120px]" @click="openEditDialog(account.name)">{{ t('accounts.list.update') }}</Button>
-              <Button size="sm" variant="destructive" class="flex-1 min-w-[120px]" @click="openDeleteDialog(account.name)">{{ t('accounts.list.delete') }}</Button>
+            <div class="mt-4 flex flex-wrap items-center gap-2">
+              <Button size="sm" class="flex-1 min-w-[120px]" @click="openEditDialog(account.name)">{{ t('accounts.list.update') }}</Button>
+              <Button size="sm" variant="outline" class="text-rose-600 border-rose-200 hover:bg-rose-50" @click="openDeleteDialog(account.name)">{{ t('accounts.list.delete') }}</Button>
             </div>
           </article>
         </div>

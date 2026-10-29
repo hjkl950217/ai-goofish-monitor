@@ -162,10 +162,20 @@ const emit = defineEmits<{
               />
               <Badge
                 variant="outline"
-                :class="task.is_running ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-500'"
+                :class="[
+                  'whitespace-nowrap shrink-0',
+                  task.is_running ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-500',
+                ]"
               >
                 {{ task.is_running ? t('common.running') : t('common.idle') }}
               </Badge>
+              <span
+                v-if="lastRunText(task.id)"
+                class="text-right text-[10px] font-medium"
+                :class="lastRunOf(task.id)?.status === 'failed' ? 'text-rose-500' : 'text-slate-400'"
+              >
+                {{ lastRunText(task.id) }}
+              </span>
             </div>
           </div>
 
@@ -430,7 +440,7 @@ const emit = defineEmits<{
                     variant="ghost" 
                     class="h-6 text-[9px] font-black text-emerald-600 hover:bg-emerald-50 uppercase tracking-widest px-2" 
                     :aria-label="`${t('tasks.table.refreshCriteria')} ${task.task_name}`"
-                    :title="`${t('tasks.table.refreshCriteria')} ${task.task_name}`"
+                    :title="t('tasks.table.refreshCriteriaHint')"
                     @click="emit('refresh-criteria', task)"
                   >
                     <RefreshCcw class="w-2.5 h-2.5 mr-1" /> {{ t('tasks.table.refreshCriteria') }}
@@ -472,7 +482,10 @@ const emit = defineEmits<{
                 >
                   {{ lastRunText(task.id) }}
                 </div>
-                <div class="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                <div
+                  class="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest"
+                  :title="t('tasks.table.pagesHint')"
+                >
                   <Layers class="w-3 h-3 opacity-50" /> {{ task.max_pages || 3 }}P
                 </div>
               </div>

@@ -11,6 +11,9 @@ import {
   useForwardPropsEmits,
 } from "reka-ui"
 import { cn } from "@/lib/utils"
+import { useI18n } from "vue-i18n"
+
+const { t } = useI18n()
 
 const props = defineProps<DialogContentProps & { class?: HTMLAttributes["class"] }>()
 const emits = defineEmits<DialogContentEmits>()
@@ -39,7 +42,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
         class="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
       >
         <X class="w-4 h-4" />
-        <span class="sr-only">Close</span>
+        <span class="sr-only">{{ t('common.close') }}</span>
       </DialogClose>
     </DialogContent>
   </DialogPortal>
