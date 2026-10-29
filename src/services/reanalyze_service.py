@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from src.infrastructure.persistence.sqlite_connection import sqlite_connection
+from src.services.analysis_prompt_builder import build_analysis_prompt
 
 STATE_PATH = "data/backfill_state.json"
 
@@ -96,9 +97,7 @@ def build_prompt(task_name: Optional[str] = None):
             ).fetchone()
     if not row:
         raise RuntimeError("未找到可用任务（检查任务是否启用）")
-    base = (repo_root / row["ai_prompt_base_file"]).read_text(encoding="utf-8")
-    criteria = (repo_root / row["ai_prompt_criteria_file"]).read_text(encoding="utf-8")
-    prompt = base.replace("{{CRITERIA_SECTION}}", criteria)
+    prompt = build_analysis_prompt(row, root=repo_root)
     if len(prompt) < 100 or "{{CRITERIA_SECTION}}" in prompt:
         raise RuntimeError(f"prompt 组装异常（长度 {len(prompt)}）")
     return str(row["task_name"]), prompt

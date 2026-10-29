@@ -453,10 +453,20 @@ function handleSubmit() {
           <Textarea
             id="description"
             v-model="form.description"
-            class="min-h-[200px] flex-1"
+            class="min-h-[140px]"
             :placeholder="t('tasks.form.descriptionPlaceholder')"
           />
-          <p class="mt-2 text-xs text-slate-500">{{ t('tasks.form.descriptionHint') }}</p>
+          <p class="mt-1 text-xs text-slate-500">{{ t('tasks.form.descriptionHint') }}</p>
+
+          <div class="mt-3 flex items-baseline justify-between gap-2">
+            <span class="text-sm font-medium text-slate-700">{{ t('tasks.form.criteria') }}</span>
+            <span class="text-xs text-slate-400">{{ t('tasks.form.criteriaHint') }}</span>
+          </div>
+          <Textarea
+            v-model="form.criteria_text"
+            class="mt-1 min-h-[200px] flex-1"
+            :placeholder="t('tasks.form.criteriaPlaceholder')"
+          />
         </template>
       </TabsContent>
     </Tabs>

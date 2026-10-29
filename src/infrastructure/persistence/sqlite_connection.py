@@ -13,7 +13,7 @@ from src.infrastructure.persistence.storage_names import DEFAULT_DATABASE_PATH
 
 
 BUSY_TIMEOUT_MS = 5000
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _config_hint_shown = False
 
@@ -39,6 +39,7 @@ SCHEMA_STATEMENTS = (
         cron TEXT,
         ai_prompt_base_file TEXT NOT NULL,
         ai_prompt_criteria_file TEXT NOT NULL,
+        criteria_text TEXT,
         account_state_file TEXT,
         account_strategy TEXT NOT NULL,
         free_shipping INTEGER NOT NULL,
@@ -178,7 +179,25 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
         # 老库（user_version=0）列可能已补过，迁移函数内部按列探测，重复执行不报错
         _migrate_result_items_status(conn)
         _migrate_result_items_refresh(conn)
+    if version < 2:
+        _migrate_tasks_criteria(conn)
+    if version < SCHEMA_VERSION:
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+
+
+def _migrate_tasks_criteria(conn: sqlite3.Connection) -> None:
+    """给 tasks 表加 criteria_text，判断标准从共享文件迁到任务记录（仅执行一次）。"""
+    row = conn.execute(
+        "SELECT value FROM app_metadata WHERE key = 'migration:tasks_criteria'"
+    ).fetchone()
+    if row is not None:
+        return
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(tasks)").fetchall()]
+    if "criteria_text" not in cols:
+        conn.execute("ALTER TABLE tasks ADD COLUMN criteria_text TEXT")
+    conn.execute(
+        "INSERT OR REPLACE INTO app_metadata(key, value) VALUES ('migration:tasks_criteria', 'done')"
+    )
 
 
 def _migrate_result_items_refresh(conn: sqlite3.Connection) -> None:

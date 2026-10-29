@@ -112,7 +112,6 @@ const emit = defineEmits<{
   (e: 'run-task', taskId: number): void
   (e: 'stop-task', taskId: number): void
   (e: 'edit-task', task: Task): void
-  (e: 'refresh-criteria', task: Task): void
   (e: 'toggle-enabled', task: Task, enabled: boolean): void
 }>()
 </script>

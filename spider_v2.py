@@ -10,6 +10,7 @@ import re
 from src.config import STATE_FILE
 from src.infrastructure.persistence.sqlite_task_repository import SqliteTaskRepository
 from src.scraper import scrape_xianyu
+from src.services.analysis_prompt_builder import build_analysis_prompt
 from src.services.prompt_defaults import ensure_default_prompts
 from src.services.task_run_status import write_run_status
 
@@ -120,16 +121,11 @@ async def main():
             task["ai_prompt_text"] = ""
             continue
 
-        if task.get("enabled", False) and task.get("ai_prompt_base_file") and task.get("ai_prompt_criteria_file"):
+        has_prompt_source = task.get("criteria_text") or task.get("ai_prompt_criteria_file")
+        if task.get("enabled", False) and task.get("ai_prompt_base_file") and has_prompt_source:
             try:
-                with open(task["ai_prompt_base_file"], 'r', encoding='utf-8') as f_base:
-                    base_prompt = f_base.read()
-                with open(task["ai_prompt_criteria_file"], 'r', encoding='utf-8') as f_criteria:
-                    criteria_text = f_criteria.read()
-                
-                # 动态组合成最终的Prompt
-                task['ai_prompt_text'] = base_prompt.replace("{{CRITERIA_SECTION}}", criteria_text)
-                
+                task['ai_prompt_text'] = build_analysis_prompt(task)
+
                 # 验证生成的prompt是否有效
                 if len(task['ai_prompt_text']) < 100:
                     print(f"警告: 任务 '{task['task_name']}' 生成的prompt过短 ({len(task['ai_prompt_text'])} 字符)，可能存在问题。")

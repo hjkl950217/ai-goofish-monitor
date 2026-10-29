@@ -122,6 +122,8 @@ class Task(BaseModel):
     cron: Optional[str] = None
     ai_prompt_base_file: str
     ai_prompt_criteria_file: str
+    # 任务自己的判断标准。为空时回退到 ai_prompt_criteria_file 指向的文件
+    criteria_text: Optional[str] = None
     account_state_file: Optional[str] = None
     account_strategy: Literal["auto", "fixed", "rotate"] = "auto"
     free_shipping: bool = True
@@ -172,6 +174,7 @@ class TaskCreate(BaseModel):
     cron: Optional[str] = None
     ai_prompt_base_file: str = "prompts/base_prompt.txt"
     ai_prompt_criteria_file: str = ""
+    criteria_text: Optional[str] = None
     account_state_file: Optional[str] = None
     account_strategy: Literal["auto", "fixed", "rotate"] = "auto"
     free_shipping: bool = True
@@ -239,6 +242,7 @@ class TaskUpdate(BaseModel):
     cron: Optional[str] = None
     ai_prompt_base_file: Optional[str] = None
     ai_prompt_criteria_file: Optional[str] = None
+    criteria_text: Optional[str] = None
     account_state_file: Optional[str] = None
     account_strategy: Optional[Literal["auto", "fixed", "rotate"]] = None
     free_shipping: Optional[bool] = None

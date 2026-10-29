@@ -19,7 +19,7 @@ def build_criteria_filename(keyword: str) -> str:
     return f"prompts/{safe_keyword}_criteria.txt"
 
 
-def build_task_create(req: TaskGenerateRequest, criteria_file: str) -> TaskCreate:
+def build_task_create(req: TaskGenerateRequest, criteria_file: str, criteria_text: str = "") -> TaskCreate:
     return TaskCreate(
         task_name=req.task_name,
         enabled=True,
@@ -33,6 +33,7 @@ def build_task_create(req: TaskGenerateRequest, criteria_file: str) -> TaskCreat
         cron=req.cron,
         ai_prompt_base_file="prompts/base_prompt.txt",
         ai_prompt_criteria_file=criteria_file,
+        criteria_text=criteria_text or None,
         account_state_file=req.account_state_file,
         account_strategy=req.account_strategy,
         free_shipping=req.free_shipping,
@@ -109,7 +110,9 @@ async def run_ai_generation_job(
             "task",
             "分析标准已生成，正在创建任务记录。",
         )
-        task = await task_service.create_task(build_task_create(req, output_filename))
+        task = await task_service.create_task(
+            build_task_create(req, output_filename, generated_criteria)
+        )
         await reload_scheduler(task_service, scheduler_service)
         await generation_service.complete(job_id, task, f"任务“{req.task_name}”创建完成。")
     except Exception as exc:

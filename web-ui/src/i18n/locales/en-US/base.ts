@@ -366,7 +366,7 @@ const enUS = {
       rotation: 'Rotation',
       notifications: 'Notifications',
       status: 'System Status',
-      prompts: 'Prompts',
+      prompts: 'Built-in Prompts',
     },
     notifications: { saved: 'Notification settings saved.', saveFailed: 'Failed to save notification settings.', testFailed: 'Notification test failed.' },
     ai: {

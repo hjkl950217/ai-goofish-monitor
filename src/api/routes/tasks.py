@@ -204,6 +204,8 @@ async def update_task(
                     await f.write(generated_criteria)
                 print(f"新的分析标准已保存")
                 task_update.ai_prompt_criteria_file = output_filename
+                # 判断标准同时写进任务记录，运行时优先用它，不再依赖共享文件
+                task_update.criteria_text = generated_criteria
                 print(f"已更新 ai_prompt_criteria_file 字段为: {output_filename}")
             except HTTPException:
                 raise

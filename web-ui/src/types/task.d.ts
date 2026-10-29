@@ -15,6 +15,7 @@ export interface Task {
   next_run_at?: string | null;
   ai_prompt_base_file: string;
   ai_prompt_criteria_file: string;
+  criteria_text?: string | null;
   account_state_file?: string | null;
   account_strategy: 'auto' | 'fixed' | 'rotate';
   free_shipping?: boolean;

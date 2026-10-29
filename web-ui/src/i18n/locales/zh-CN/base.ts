@@ -366,7 +366,7 @@ const zhCN = {
       rotation: 'IP 轮换',
       notifications: '通知推送',
       status: '系统状态',
-      prompts: 'Prompt 管理',
+      prompts: '内置提示词',
     },
     notifications: { saved: '通知设置已保存', saveFailed: '通知设置保存失败', testFailed: '通知测试失败' },
     ai: {
