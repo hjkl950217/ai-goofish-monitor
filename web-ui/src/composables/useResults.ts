@@ -48,7 +48,7 @@ export function useResults() {
       ai_recommended_only: false,
       keyword_recommended_only: false,
       include_hidden: false,
-      sort_by: 'publish_time',
+      sort_by: 'score',
       sort_order: 'desc',
     }
     try {
@@ -60,59 +60,15 @@ export function useResults() {
 
   const filters = reactive<ResultFilters>(loadPersistedFilters())
 
-  // 「新商品」标记：按结果集分别记录已读过的商品 ID
-  const seenIds = ref<Set<string>>(new Set())
-  const newItemIds = ref<Set<string>>(new Set())
-  let seenLoadedFor: string | null = null
-
-  function resultItemKey(item: ResultItem): string {
-    return String(item.item_info?.item_id ?? item._meta?.item_id ?? '')
-  }
-
-  function seenStorageKey(): string {
-    return `resultSeen:${selectedFile.value ?? ''}`
-  }
-
-  function loadSeen() {
-    const next = new Set<string>()
-    if (selectedFile.value) {
-      try {
-        const raw = localStorage.getItem(seenStorageKey())
-        if (raw) {
-          for (const id of JSON.parse(raw) as string[]) next.add(id)
-        }
-      } catch {
-        // 存储损坏时按全部未读处理
-      }
-    }
-    seenIds.value = next
-  }
-
-  function computeNewIds() {
-    const fresh = new Set<string>()
-    for (const item of results.value) {
-      const key = resultItemKey(item)
-      if (key && !seenIds.value.has(key)) fresh.add(key)
-    }
-    newItemIds.value = fresh
-  }
-
-  function persistSeen() {
-    if (!selectedFile.value) return
+  // 旧版本按结果集记录过「已读」商品 ID，功能已取消，这里清一次残留
+  function clearLegacySeenKeys() {
     try {
-      localStorage.setItem(seenStorageKey(), JSON.stringify([...seenIds.value].slice(-2000)))
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith('resultSeen:')) localStorage.removeItem(key)
+      }
     } catch {
-      // 配额不足时放弃持久化，不阻塞页面
+      // 存储不可用时忽略
     }
-  }
-
-  function markAllSeen() {
-    for (const item of results.value) {
-      const key = resultItemKey(item)
-      if (key) seenIds.value.add(key)
-    }
-    persistSeen()
-    newItemIds.value = new Set()
   }
 
   const isLoading = ref(false)
@@ -160,11 +116,6 @@ export function useResults() {
       return
     }
 
-    if (seenLoadedFor !== selectedFile.value) {
-      loadSeen()
-      seenLoadedFor = selectedFile.value
-    }
-
     isLoading.value = true
     error.value = null
     try {
@@ -175,7 +126,6 @@ export function useResults() {
       })
       results.value = data.items
       totalItems.value = data.total_items
-      computeNewIds()
     } catch (e) {
       if (e instanceof Error) error.value = e
       results.value = []
@@ -363,6 +313,7 @@ export function useResults() {
 
   // Lifecycle
   onMounted(() => {
+    clearLegacySeenKeys()
     fetchFiles()
     fetchTaskNameMap()
   })
@@ -386,8 +337,5 @@ export function useResults() {
     saveBlacklistRules,
     fileOptions,
     isFileOptionsReady,
-    newItemIds,
-    markAllSeen,
-    resultItemKey,
   }
 }

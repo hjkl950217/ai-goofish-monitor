@@ -18,6 +18,7 @@ import { getModelCheckStatus, startModelCheck, cancelModelCheck } from '@/api/mo
 import type { ModelCheckStatus } from '@/api/modelCheck'
 import NotificationSettingsPanel from '@/components/settings/NotificationSettingsPanel.vue'
 import RotationSettingsPanel from '@/components/settings/RotationSettingsPanel.vue'
+import JsonEditor from '@/components/settings/JsonEditor.vue'
 import { getRawConfig, saveRawConfig } from '@/api/configFile'
 import { validateJsonc } from '@/lib/jsonc'
 import { confirmSave } from '@/lib/confirm'
@@ -728,13 +729,7 @@ watch(selectedPrompt, async (value) => {
           <p class="font-mono text-xs text-gray-500">
             {{ rawConfigPath || t('settings.configFile.pathUnknown') }}
           </p>
-          <Textarea
-            v-model="rawConfig"
-            class="min-h-[420px] font-mono text-xs"
-            spellcheck="false"
-            :disabled="isRawConfigLoading"
-            :placeholder="t('settings.configFile.placeholder')"
-          />
+          <JsonEditor v-model="rawConfig" />
           <p class="text-xs text-gray-500">{{ t('settings.configFile.hint') }}</p>
           <div class="flex gap-2">
             <Button variant="outline" :disabled="isRawConfigLoading" @click="loadRawConfig">

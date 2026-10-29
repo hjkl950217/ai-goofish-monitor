@@ -41,7 +41,6 @@ interface Props {
   sortOrder: 'asc' | 'desc'
   isLoading: boolean
   isReady: boolean
-  newCount?: number
   minPrice?: number
   maxPrice?: number
   publishedDays?: number
@@ -93,7 +92,6 @@ const emit = defineEmits<{
   (e: 'delete'): void
   (e: 'manage-blacklist'): void
   (e: 'reanalyze-finished'): void
-  (e: 'mark-all-seen'): void
   (e: 'update:minPrice', value: number | undefined): void
   (e: 'update:maxPrice', value: number | undefined): void
   (e: 'update:publishedDays', value: number | undefined): void
@@ -235,7 +233,7 @@ function handleToggleKeywordRecommended(value: boolean) {
       </div>
 
       <div class="space-y-2">
-        <Label class="text-xs font-semibold text-slate-500">{{ t('results.filters.sortByCrawlTime') }}</Label>
+        <Label class="text-xs font-semibold text-slate-500">{{ t('results.filters.sortBy') }}</Label>
         <Select
           :model-value="props.sortBy"
           @update:model-value="(value) => emit('update:sortBy', value as any)"
@@ -297,15 +295,6 @@ function handleToggleKeywordRecommended(value: boolean) {
             @update:modelValue="(value) => emit('update:includeHidden', value === true)"
           />
           <Label for="include-hidden" class="cursor-pointer">{{ t('results.filters.includeHidden') }}</Label>
-        </div>
-
-        <div v-if="props.newCount" class="flex items-center gap-2">
-          <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">
-            {{ t('results.filters.newCount', { count: props.newCount }) }}
-          </span>
-          <Button variant="ghost" size="sm" class="h-7 text-xs" @click="emit('mark-all-seen')">
-            {{ t('results.filters.markAllSeen') }}
-          </Button>
         </div>
 
         <Button

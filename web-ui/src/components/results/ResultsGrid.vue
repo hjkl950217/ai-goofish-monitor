@@ -6,14 +6,10 @@ import ResultCard from './ResultCard.vue'
 interface Props {
   results: ResultItem[]
   isLoading: boolean
-  newIds?: Set<string>
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 const { t } = useI18n()
-
-const isNewItem = (item: ResultItem) =>
-  props.newIds?.has(String(item.item_info?.item_id ?? item._meta?.item_id ?? '')) ?? false
 
 const emit = defineEmits<{
   (e: 'toggle-block', item: ResultItem): void
@@ -59,7 +55,6 @@ const skeletonItems = Array.from({ length: 8 }, (_, index) => index)
         v-for="item in results"
         :key="item.item_info.item_id"
         :item="item"
-        :is-new="isNewItem(item)"
         @toggle-block="emit('toggle-block', $event)"
       />
     </div>

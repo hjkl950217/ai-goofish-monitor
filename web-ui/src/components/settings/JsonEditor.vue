@@ -1,0 +1,95 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { stripJsonc, validateJsonc } from '@/lib/jsonc'
+
+const props = defineProps<{ modelValue: string }>()
+const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
+
+const editor = ref<HTMLTextAreaElement | null>(null)
+const highlight = ref<HTMLElement | null>(null)
+const gutter = ref<HTMLElement | null>(null)
+
+const lineNumbers = computed(() => props.modelValue.replace(/\n$/, '').split('\n').length)
+
+function escapeHtml(text: string) {
+  return text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string))
+}
+
+// 注释灰、键蓝、字符串值绿、数字琥珀、true/false/null 紫
+const TOKEN = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|("(?:[^"\\]|\\.)*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false|null)\b/g
+
+const highlighted = computed(() => {
+  const text = props.modelValue
+  let out = ''
+  let last = 0
+  for (const match of text.matchAll(TOKEN)) {
+    const index = match.index ?? 0
+    out += escapeHtml(text.slice(last, index))
+    const [raw, comment, str, colon, num, literal] = match
+    if (comment) out += `<span class="italic text-slate-400">${escapeHtml(comment)}</span>`
+    else if (str) {
+      out += `<span class="${colon ? 'text-sky-700' : 'text-emerald-700'}">${escapeHtml(str)}</span>`
+      if (colon) out += escapeHtml(colon)
+    } else if (num) out += `<span class="text-amber-700">${escapeHtml(num)}</span>`
+    else if (literal) out += `<span class="text-violet-700">${escapeHtml(literal)}</span>`
+    else out += escapeHtml(raw)
+    last = index + raw.length
+  }
+  return out + escapeHtml(text.slice(last))
+})
+
+const error = computed(() => {
+  const message = validateJsonc(props.modelValue)
+  if (!message) return ''
+  const position = Number(message.match(/position (\d+)/)?.[1])
+  if (!Number.isFinite(position)) return message
+  const line = stripJsonc(props.modelValue).slice(0, position).split('\n').length
+  return `第 ${line} 行：${message}`
+})
+
+function onInput(event: Event) {
+  emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
+}
+
+// 行号层与着色层跟随 textarea 滚动
+function syncScroll() {
+  const el = editor.value
+  if (!el) return
+  if (highlight.value) highlight.value.style.transform = `translate(${-el.scrollLeft}px, ${-el.scrollTop}px)`
+  if (gutter.value) gutter.value.style.transform = `translateY(${-el.scrollTop}px)`
+}
+</script>
+
+<template>
+  <div
+    class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-colors focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/15"
+  >
+    <div class="relative flex h-[56vh] min-h-[380px] overflow-hidden font-mono text-xs leading-5">
+      <div class="w-11 shrink-0 select-none overflow-hidden border-r border-slate-100 bg-slate-50 py-3 text-right text-slate-400">
+        <div ref="gutter" class="pr-2">
+          <div v-for="n in lineNumbers" :key="n">{{ n }}</div>
+        </div>
+      </div>
+      <div class="relative flex-1 overflow-hidden">
+        <pre
+          ref="highlight"
+          aria-hidden="true"
+          class="pointer-events-none absolute inset-0 whitespace-pre px-3 py-3 text-slate-700"
+          v-html="highlighted"
+        ></pre>
+        <textarea
+          ref="editor"
+          :value="modelValue"
+          class="absolute inset-0 h-full w-full resize-none whitespace-pre bg-transparent px-3 py-3 text-xs leading-5 text-transparent caret-slate-900 outline-none"
+          spellcheck="false"
+          wrap="off"
+          @input="onInput"
+          @scroll="syncScroll"
+        ></textarea>
+      </div>
+    </div>
+    <div v-if="error" class="border-t border-rose-100 bg-rose-50 px-3 py-1.5 text-xs text-rose-700">
+      {{ error }}
+    </div>
+  </div>
+</template>

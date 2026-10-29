@@ -2,20 +2,27 @@
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { LoaderCircle, Search, Sparkles } from 'lucide-vue-next'
+import { FileText, LoaderCircle, Search, Sparkles } from 'lucide-vue-next'
 import Badge from '@/components/ui/badge/Badge.vue'
+import * as resultsApi from '@/api/results'
 import * as taskApi from '@/api/tasks'
 import { useWebSocket } from '@/composables/useWebSocket'
 import type { Task } from '@/types/task.d.ts'
 
 const MAX_RESULTS = 6
 
+interface ResultOption {
+  file: string
+  taskName: string
+  keyword: string
+}
+
 const router = useRouter()
 const { t } = useI18n()
 const { on } = useWebSocket()
 const rootRef = ref<HTMLElement | null>(null)
 const query = ref('')
-const tasks = ref<Task[]>([])
+const options = ref<ResultOption[]>([])
 const isLoading = ref(false)
 const error = ref('')
 const isOpen = ref(false)
@@ -23,10 +30,10 @@ const highlightedIndex = ref(0)
 
 const normalizedQuery = computed(() => query.value.trim().toLowerCase())
 
-const visibleTasks = computed(() => {
+const visibleOptions = computed(() => {
   const list = normalizedQuery.value
-    ? tasks.value.filter((task) => matchesTask(task, normalizedQuery.value))
-    : tasks.value
+    ? options.value.filter((option) => matchesOption(option, normalizedQuery.value))
+    : options.value
   return list.slice(0, MAX_RESULTS)
 })
 
@@ -38,39 +45,40 @@ const shouldShowPanel = computed(() => (
   isOpen.value && (
     isLoading.value ||
     Boolean(error.value) ||
-    visibleTasks.value.length > 0 ||
+    visibleOptions.value.length > 0 ||
     Boolean(normalizedQuery.value)
   )
 ))
 
-function matchesTask(task: Task, value: string) {
-  const fields = [
-    task.task_name,
-    task.keyword,
-    task.description || '',
-    task.region || '',
-  ]
-  return fields.some((field) => field.toLowerCase().includes(value))
+function normalizeKeyword(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, '_')
 }
 
-function getTaskStatus(task: Task) {
-  if (task.is_running) return t('common.running')
-  if (task.enabled) return t('common.enabled')
-  return t('common.disabled')
+function keywordFromFile(file: string) {
+  return file.replace(/_full_data\.jsonl$/i, '').toLowerCase()
 }
 
-function getTaskMeta(task: Task) {
-  const parts = [task.keyword]
-  if (task.region) parts.push(task.region)
-  parts.push(t('tasks.search.maxPages', { count: task.max_pages }))
-  return parts.join(' · ')
+function matchesOption(option: ResultOption, value: string) {
+  return [option.taskName, option.file, option.keyword]
+    .some((field) => field.toLowerCase().includes(value))
 }
 
-async function fetchTasks() {
+async function fetchOptions() {
   isLoading.value = true
   error.value = ''
   try {
-    tasks.value = await taskApi.getAllTasks()
+    const [files, tasks] = await Promise.all([
+      resultsApi.getResultFiles(),
+      taskApi.getAllTasks(),
+    ])
+    const nameByKeyword: Record<string, string> = {}
+    tasks.forEach((task: Task) => {
+      if (task.keyword) nameByKeyword[normalizeKeyword(task.keyword)] = task.task_name
+    })
+    options.value = files.map((file) => {
+      const keyword = keywordFromFile(file)
+      return { file, keyword, taskName: nameByKeyword[keyword] || file }
+    })
   } catch (e) {
     error.value = e instanceof Error ? e.message : t('tasks.search.loadFailed')
   } finally {
@@ -79,8 +87,8 @@ async function fetchTasks() {
 }
 
 function ensureLoaded() {
-  if (tasks.value.length || isLoading.value) return
-  fetchTasks()
+  if (options.value.length || isLoading.value) return
+  fetchOptions()
 }
 
 function openPanel() {
@@ -93,17 +101,15 @@ function closePanel() {
   highlightedIndex.value = 0
 }
 
-function selectTask(task: Task) {
+function selectOption(option: ResultOption) {
   closePanel()
-  router.push({
-    name: 'Tasks',
-    query: { edit: String(task.id) },
-  })
+  query.value = ''
+  router.push({ name: 'Results', query: { file: option.file } })
 }
 
 function moveHighlight(direction: 1 | -1) {
-  if (!visibleTasks.value.length) return
-  const lastIndex = visibleTasks.value.length - 1
+  if (!visibleOptions.value.length) return
+  const lastIndex = visibleOptions.value.length - 1
   const nextIndex = highlightedIndex.value + direction
   if (nextIndex < 0) {
     highlightedIndex.value = lastIndex
@@ -133,11 +139,11 @@ function handleKeydown(event: KeyboardEvent) {
     moveHighlight(-1)
     return
   }
-  if (event.key === 'Enter' && visibleTasks.value.length) {
+  if (event.key === 'Enter' && visibleOptions.value.length) {
     event.preventDefault()
-    const selectedTask = visibleTasks.value[highlightedIndex.value]
-    if (selectedTask) {
-      selectTask(selectedTask)
+    const selected = visibleOptions.value[highlightedIndex.value]
+    if (selected) {
+      selectOption(selected)
     }
   }
 }
@@ -156,8 +162,8 @@ watch(normalizedQuery, () => {
   openPanel()
 })
 
-on('tasks_updated', fetchTasks)
-on('task_status_changed', fetchTasks)
+on('results_updated', fetchOptions)
+on('tasks_updated', fetchOptions)
 
 onMounted(() => {
   document.addEventListener('mousedown', handlePointerDown)
@@ -192,11 +198,11 @@ onBeforeUnmount(() => {
           <div>
             <p class="text-xs font-black uppercase tracking-[0.24em] text-slate-400">{{ panelTitle }}</p>
             <p class="mt-1 text-xs text-slate-500">
-              {{ normalizedQuery ? t('tasks.search.resultCount', { count: visibleTasks.length }) : t('tasks.search.enterHint') }}
+              {{ normalizedQuery ? t('tasks.search.resultCount', { count: visibleOptions.length }) : t('tasks.search.enterHint') }}
             </p>
           </div>
           <Badge variant="outline" class="border-slate-200 bg-slate-50 text-[10px] text-slate-500">
-            {{ t('routes.tasks') }}
+            {{ t('routes.results') }}
           </Badge>
         </div>
 
@@ -209,47 +215,47 @@ onBeforeUnmount(() => {
           {{ error }}
         </div>
 
-        <div v-else-if="visibleTasks.length === 0" class="px-4 py-6">
+        <div v-else-if="visibleOptions.length === 0" class="px-4 py-6">
           <p class="text-sm font-semibold text-slate-700">{{ t('tasks.search.emptyTitle') }}</p>
           <p class="mt-1 text-xs text-slate-500">{{ t('tasks.search.emptyDescription') }}</p>
         </div>
 
         <div v-else class="divide-y divide-slate-100">
           <button
-            v-for="(task, index) in visibleTasks"
-            :key="task.id"
+            v-for="(option, index) in visibleOptions"
+            :key="option.file"
             class="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors"
             :class="index === highlightedIndex ? 'bg-primary/10 text-slate-900' : 'hover:bg-slate-50 text-slate-800'"
             @mouseenter="highlightedIndex = index"
-            @click="selectTask(task)"
+            @click="selectOption(option)"
           >
-            <div
-              class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-              :class="task.is_running ? 'bg-emerald-400' : task.enabled ? 'bg-sky-400' : 'bg-slate-300'"
+            <FileText
+              class="mt-0.5 h-4 w-4 shrink-0"
+              :class="index === highlightedIndex ? 'text-primary' : 'text-slate-400'"
             />
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between gap-3">
-                <p class="truncate text-sm font-bold">{{ task.task_name }}</p>
+                <p class="truncate text-sm font-bold">{{ option.taskName }}</p>
                 <Badge
                   variant="outline"
                   class="shrink-0 text-[10px]"
                   :class="index === highlightedIndex ? 'border-primary/30 bg-primary/10 text-primary' : 'border-slate-200 text-slate-500'"
                 >
-                  {{ getTaskStatus(task) }}
+                  {{ t('tasks.search.openResult') }}
                 </Badge>
               </div>
               <p
-                class="mt-1 truncate text-xs"
+                class="mt-1 truncate font-mono text-xs"
                 :class="index === highlightedIndex ? 'text-slate-600' : 'text-slate-500'"
               >
-                {{ getTaskMeta(task) }}
+                {{ option.file }}
               </p>
               <p
-                v-if="task.description"
+                v-if="option.keyword"
                 class="mt-1 truncate text-xs"
                 :class="index === highlightedIndex ? 'text-slate-500' : 'text-slate-400'"
               >
-                {{ task.description }}
+                {{ option.keyword }}
               </p>
             </div>
           </button>

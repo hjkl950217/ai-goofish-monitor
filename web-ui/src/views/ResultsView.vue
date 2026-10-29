@@ -39,8 +39,6 @@ const {
   saveBlacklistRules,
   fileOptions,
   isFileOptionsReady,
-  newItemIds,
-  markAllSeen,
 } = useResults()
 
 const isDeleteDialogOpen = ref(false)
@@ -138,7 +136,7 @@ function syncQuery() {
   if (filters.ai_recommended_only) query.ai = '1'
   if (filters.keyword_recommended_only) query.keyword = '1'
   if (filters.include_hidden) query.hidden = '1'
-  if (filters.sort_by !== 'publish_time') query.sort = filters.sort_by
+  if (filters.sort_by !== 'score') query.sort = filters.sort_by
   if (filters.sort_order !== 'desc') query.order = filters.sort_order
   if (filters.min_price !== undefined) query.min_price = String(filters.min_price)
   if (filters.max_price !== undefined) query.max_price = String(filters.max_price)
@@ -222,10 +220,8 @@ watch(
       v-model:shipRegion="filters.ship_region"
       v-model:analysisStatus="filters.analysis_status"
       :is-loading="isLoading"
-      :new-count="newItemIds.size"
       @refresh="refreshResults"
       @reanalyze-finished="refreshResults"
-      @mark-all-seen="markAllSeen"
       @manage-blacklist="openBlacklistDialog"
       @export="handleExportResults"
       @delete="openDeleteDialog"
@@ -233,7 +229,7 @@ watch(
 
     <ResultsInsightsPanel :insights="insights" :selected-task-label="selectedTaskLabel" />
 
-    <ResultsGrid :results="results" :is-loading="isLoading" :new-ids="newItemIds" @toggle-block="toggleItemBlock" />
+    <ResultsGrid :results="results" :is-loading="isLoading" @toggle-block="toggleItemBlock" />
 
     <Dialog v-model:open="isDeleteDialogOpen">
       <DialogContent class="sm:max-w-[420px]">
