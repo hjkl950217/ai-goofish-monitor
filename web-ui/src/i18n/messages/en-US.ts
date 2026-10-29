@@ -308,6 +308,8 @@ const enUS = {
   ownMedian: 'This item median',
   historicalLow: 'This item low',
   historicalHigh: 'This item high',
+  prevItem: 'Previous item',
+  nextItem: 'Next item',
   priceSourceNote: 'Market avg/median come from the latest same-keyword search sample with outliers removed; this item numbers come from local history snapshots.',
   notFound: 'Item not found or removed',
   },

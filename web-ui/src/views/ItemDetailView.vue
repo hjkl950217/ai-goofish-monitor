@@ -5,10 +5,11 @@ import { useI18n } from 'vue-i18n'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Loader2, ArrowLeft, ExternalLink, ImageOff, Package, TrendingDown, TrendingUp } from 'lucide-vue-next'
+import { Loader2, ArrowLeft, ExternalLink, ImageOff, Package, TrendingDown, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import type { ResultItem } from '@/types/result.d.ts'
 import { criteriaLabel, criteriaStatusLabel, criteriaStatusTone } from '@/constants/criteria'
 import { formatLocalDateTime } from '@/i18n'
+import { getResultContent } from '@/api/results'
 
 interface ItemImage {
   name: string
@@ -132,8 +133,36 @@ function formatPrice(value?: string | number): string {
   return text && text !== '暂无' ? text : '—'
 }
 
+const neighborIds = ref<{ prev: string | null; next: string | null }>({ prev: null, next: null })
+
+async function loadNeighbors() {
+  const filename = item.value?._meta?.result_filename
+  if (!filename) return
+  try {
+    const data = await getResultContent(filename, { limit: 500, page: 1 })
+    const ids = (data.items || []).map((row) =>
+      String(row.商品信息?.商品ID ?? row._meta?.item_id ?? ''),
+    )
+    const index = ids.indexOf(itemId.value)
+    neighborIds.value = {
+      prev: index > 0 ? ids[index - 1] ?? null : null,
+      next: index >= 0 && index < ids.length - 1 ? ids[index + 1] ?? null : null,
+    }
+  } catch {
+    neighborIds.value = { prev: null, next: null }
+  }
+}
+
+function goItem(id: string | null) {
+  if (!id) return
+  router.push({ name: 'ItemDetail', params: { itemId: id } })
+}
+
 onMounted(load)
 watch(itemId, load)
+watch(item, () => {
+  loadNeighbors()
+})
 </script>
 
 <template>
@@ -142,15 +171,37 @@ watch(itemId, load)
       <Button variant="ghost" @click="router.back()">
         <ArrowLeft class="mr-1 h-4 w-4" /> {{ t('itemDetail.back') }}
       </Button>
-      <a
-        v-if="info.商品链接"
-        :href="info.商品链接"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="inline-flex items-center text-sm text-primary hover:underline"
-      >
-        <ExternalLink class="mr-1 h-4 w-4" /> {{ t('itemDetail.openOnXianyu') }}
-      </a>
+      <div class="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          :disabled="!neighborIds.prev"
+          :title="t('itemDetail.prevItem')"
+          :aria-label="t('itemDetail.prevItem')"
+          @click="goItem(neighborIds.prev)"
+        >
+          <ChevronLeft class="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          :disabled="!neighborIds.next"
+          :title="t('itemDetail.nextItem')"
+          :aria-label="t('itemDetail.nextItem')"
+          @click="goItem(neighborIds.next)"
+        >
+          <ChevronRight class="h-4 w-4" />
+        </Button>
+        <a
+          v-if="info.商品链接"
+          :href="info.商品链接"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center text-sm text-primary hover:underline"
+        >
+          <ExternalLink class="mr-1 h-4 w-4" /> {{ t('itemDetail.openOnXianyu') }}
+        </a>
+      </div>
     </div>
 
     <div v-if="isLoading" class="flex items-center justify-center py-20 text-slate-400">

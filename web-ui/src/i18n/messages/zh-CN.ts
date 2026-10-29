@@ -308,6 +308,8 @@ const zhCN = {
   ownMedian: '本商品中位',
   historicalLow: '本商品历史最低',
   historicalHigh: '本商品历史最高',
+  prevItem: '上一个商品',
+  nextItem: '下一个商品',
   priceSourceNote: '市场均价/中位来自最近一次同关键词搜索样本，已剔除离群价格；本商品数字来自本地历史快照。',
   notFound: '商品不存在或已被删除',
   },

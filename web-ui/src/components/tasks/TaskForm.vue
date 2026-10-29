@@ -374,6 +374,9 @@ function handleSubmit() {
               </p>
             </TabsContent>
           </Tabs>
+          <p v-if="!form.cron" class="text-xs text-amber-600">
+            {{ t('tasks.form.cronManualHint') }}
+          </p>
         </div>
       </div>
       <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
