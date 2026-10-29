@@ -88,3 +88,166 @@ export function validateJsonc(text: string): string {
     return (error as Error).message
   }
 }
+
+// ------------------------------------------------------------------ 格式化
+
+type JsoncToken = {
+  kind: 'open' | 'close' | 'comma' | 'colon' | 'string' | 'literal' | 'lineComment' | 'blockComment'
+  text: string
+}
+
+function tokenizeJsonc(text: string): JsoncToken[] {
+  const tokens: JsoncToken[] = []
+  let i = 0
+  while (i < text.length) {
+    const ch = text[i]
+    if (ch === ' ' || ch === '\t' || ch === '\r' || ch === '\n' || ch === '﻿') {
+      i += 1
+      continue
+    }
+    if (ch === '"') {
+      let j = i + 1
+      while (j < text.length) {
+        if (text[j] === '\\') { j += 2; continue }
+        if (text[j] === '"') { j += 1; break }
+        j += 1
+      }
+      tokens.push({ kind: 'string', text: text.slice(i, j) })
+      i = j
+      continue
+    }
+    if (ch === '/' && text[i + 1] === '/') {
+      let j = text.indexOf('\n', i)
+      if (j < 0) j = text.length
+      tokens.push({ kind: 'lineComment', text: text.slice(i, j).trimEnd() })
+      i = j
+      continue
+    }
+    if (ch === '/' && text[i + 1] === '*') {
+      const end = text.indexOf('*/', i + 2)
+      const j = end < 0 ? text.length : end + 2
+      tokens.push({ kind: 'blockComment', text: text.slice(i, j) })
+      i = j
+      continue
+    }
+    if (ch === '{' || ch === '[') { tokens.push({ kind: 'open', text: ch }); i += 1; continue }
+    if (ch === '}' || ch === ']') { tokens.push({ kind: 'close', text: ch }); i += 1; continue }
+    if (ch === ',') { tokens.push({ kind: 'comma', text: ch }); i += 1; continue }
+    if (ch === ':') { tokens.push({ kind: 'colon', text: ch }); i += 1; continue }
+    let j = i
+    while (j < text.length && !' \t\r\n{}[],:"/'.includes(text[j] ?? '')) j += 1
+    if (j === i) j += 1
+    tokens.push({ kind: 'literal', text: text.slice(i, j) })
+    i = j
+  }
+  return tokens
+}
+
+/** 不含嵌套对象也不含注释、且不太长的数组保持一行；返回结尾下标，否则 -1。 */
+function inlineArrayEnd(tokens: JsoncToken[], start: number): number {
+  let width = 1
+  for (let i = start + 1; i < tokens.length; i += 1) {
+    const token = tokens[i] as JsoncToken
+    if (token.kind === 'close') return token.text === ']' && width <= 80 ? i : -1
+    if (token.kind !== 'string' && token.kind !== 'literal' && token.kind !== 'comma') return -1
+    width += token.text.length + 2
+  }
+  return -1
+}
+
+/** 按两空格缩进重排 JSONC，保留注释和键顺序；值本身不改写。 */
+export function formatJsonc(text: string): string {
+  const tokens = tokenizeJsonc(text)
+  const lines: string[] = []
+  let line = ''
+  let indent = 0
+  let i = 0
+
+  const pad = () => '  '.repeat(indent)
+  const newline = () => {
+    lines.push(line.trimEnd())
+    line = pad()
+  }
+
+  while (i < tokens.length) {
+    const token = tokens[i] as JsoncToken
+    if (token.kind === 'lineComment') {
+      if (line.trim()) line += ' '
+      line += token.text
+      newline()
+      i += 1
+      continue
+    }
+    if (token.kind === 'blockComment') {
+      const parts = token.text.split('\n')
+      if (parts.length > 1) {
+        if (line.trim()) newline()
+        line += (parts[0] ?? '').trimEnd()
+        for (const part of parts.slice(1)) {
+          newline()
+          line += part.trim()
+        }
+        newline()
+      } else {
+        line += (line.trim() ? ' ' : '') + token.text + ' '
+      }
+      i += 1
+      continue
+    }
+    if (token.kind === 'open') {
+      const close = token.text === '{' ? '}' : ']'
+      const next = tokens[i + 1]
+      if (next && next.kind === 'close' && next.text === close) {
+        line += token.text + close
+        i += 2
+        continue
+      }
+      if (token.text === '[') {
+        const end = inlineArrayEnd(tokens, i)
+        if (end > 0) {
+          const items = tokens.slice(i + 1, end).filter((t) => t.kind === 'string' || t.kind === 'literal')
+          line += `[${items.map((t) => t.text).join(', ')}]`
+          i = end + 1
+          continue
+        }
+      }
+      line += token.text
+      indent += 1
+      newline()
+      i += 1
+      continue
+    }
+    if (token.kind === 'close') {
+      indent = Math.max(0, indent - 1)
+      if (line.trim()) newline()
+      else line = pad()
+      line += token.text
+      i += 1
+      continue
+    }
+    if (token.kind === 'comma') {
+      line += ','
+      newline()
+      i += 1
+      continue
+    }
+    if (token.kind === 'colon') {
+      line += ': '
+      i += 1
+      continue
+    }
+    line += token.text
+    i += 1
+  }
+
+  if (line.trim()) lines.push(line.trimEnd())
+
+  // 去掉紧跟在 } / ] 前的尾逗号
+  const cleaned = lines.map((item, index) => {
+    if (!/,\s*$/.test(item)) return item
+    const next = lines.slice(index + 1).find((candidate) => candidate.trim())
+    return next && /^[}\]]/.test(next.trim()) ? item.replace(/,\s*$/, '') : item
+  })
+  return cleaned.join('\n') + '\n'
+}
+

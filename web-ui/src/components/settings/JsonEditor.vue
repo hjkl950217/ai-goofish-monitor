@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { stripJsonc, validateJsonc } from '@/lib/jsonc'
+import { useI18n } from 'vue-i18n'
+import { formatJsonc, stripJsonc, validateJsonc } from '@/lib/jsonc'
 
 const props = defineProps<{ modelValue: string }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
+const { t } = useI18n()
 
 const editor = ref<HTMLTextAreaElement | null>(null)
 const highlight = ref<HTMLElement | null>(null)
@@ -58,12 +60,34 @@ function syncScroll() {
   if (highlight.value) highlight.value.style.transform = `translate(${-el.scrollLeft}px, ${-el.scrollTop}px)`
   if (gutter.value) gutter.value.style.transform = `translateY(${-el.scrollTop}px)`
 }
+
+// 格式后滚回顶部，从头看一遍
+function format() {
+  if (error.value) return
+  emit('update:modelValue', formatJsonc(props.modelValue))
+  const el = editor.value
+  if (!el) return
+  el.scrollTop = 0
+  el.scrollLeft = 0
+  syncScroll()
+}
 </script>
 
 <template>
   <div
     class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-colors focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/15"
   >
+    <div class="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-3 py-1.5">
+      <span class="text-[11px] tracking-wide text-slate-400">JSONC</span>
+      <button
+        type="button"
+        class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-600 transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+        :disabled="!!error || !modelValue.trim()"
+        @click="format"
+      >
+        {{ t('settings.configFile.format') }}
+      </button>
+    </div>
     <div class="relative flex h-[56vh] min-h-[380px] overflow-hidden font-mono text-xs leading-5">
       <div class="w-11 shrink-0 select-none overflow-hidden border-r border-slate-100 bg-slate-50 py-3 text-right text-slate-400">
         <div ref="gutter" class="pr-2">
