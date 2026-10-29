@@ -22,7 +22,11 @@ const props = defineProps<{
   accountOptions?: { name: string; path: string }[]
   defaultAccount?: string
   defaultValues?: Partial<TaskGenerateRequest & Partial<Task>>
+  /** 表单 id 必须唯一：新建与编辑弹窗同时挂载时，按钮的 form 属性才不会串 */
+  formId?: string
 }>()
+
+const formId = computed(() => props.formId || 'task-form')
 
 const emit = defineEmits<{
   (e: 'submit', data: EmittedData): void
@@ -267,7 +271,7 @@ function handleSubmit() {
 </script>
 
 <template>
-  <form id="task-form" @submit.prevent="handleSubmit">
+  <form :id="formId" @submit.prevent="handleSubmit">
     <div class="grid gap-6 py-4">
       <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
         <Label for="task-name" class="sm:text-right">{{ t('tasks.form.taskName') }} <span class="text-rose-500">*</span></Label>
@@ -331,9 +335,9 @@ function handleSubmit() {
       <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
         <Label class="sm:text-right">{{ t('tasks.form.priceRange') }}</Label>
         <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:col-span-3">
-          <Input type="number" v-model="form.min_price as any" :aria-label="t('tasks.form.minPrice')" :placeholder="t('tasks.form.minPrice')" />
+          <Input type="number" v-model="form.min_price" :aria-label="t('tasks.form.minPrice')" :placeholder="t('tasks.form.minPrice')" />
           <span>-</span>
-          <Input type="number" v-model="form.max_price as any" :aria-label="t('tasks.form.maxPrice')" :placeholder="t('tasks.form.maxPrice')" />
+          <Input type="number" v-model="form.max_price" :aria-label="t('tasks.form.maxPrice')" :placeholder="t('tasks.form.maxPrice')" />
         </div>
       </div>
       <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
@@ -426,7 +430,7 @@ function handleSubmit() {
       <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
         <Label class="sm:text-right">{{ t('tasks.form.newPublish') }}</Label>
         <div class="sm:col-span-3">
-          <Select v-model="form.new_publish_option as any">
+          <Select v-model="form.new_publish_option">
             <SelectTrigger>
               <SelectValue :placeholder="t('tasks.form.publishOptions.none')" />
             </SelectTrigger>
@@ -444,7 +448,7 @@ function handleSubmit() {
       <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
         <Label class="sm:text-right">{{ t('tasks.form.region') }}</Label>
         <div class="space-y-1 sm:col-span-3">
-          <TaskRegionSelector v-model="form.region as any" />
+          <TaskRegionSelector v-model="form.region" />
           <p class="text-xs text-gray-500">{{ t('tasks.form.regionHint') }}</p>
         </div>
       </div>

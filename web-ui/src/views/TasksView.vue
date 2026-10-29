@@ -125,6 +125,8 @@ async function handleUpdateTask(data: TaskUpdate) {
   isEditSubmitting.value = true
   try {
     await updateTask(selectedTask.value.id, data)
+    // 以服务端为准再拉一次，避免本地合并漏字段导致重开弹窗显示旧值
+    await fetchTasks({ silent: true })
     isEditDirty.value = false
     isEditDialogOpen.value = false
   }

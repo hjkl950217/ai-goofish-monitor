@@ -33,6 +33,28 @@ router = APIRouter(prefix="/api/results", tags=["results"])
 DEFAULT_EXPORT_FILENAME = "export.csv"
 
 
+def _build_extra_filters(
+    min_price: float | None,
+    max_price: float | None,
+    published_days: int | None,
+    ship_region: str | None,
+    analysis_status: str | None,
+) -> dict:
+    """把可选的精细筛选收成一个 dict，空值不参与查询。"""
+    filters: dict = {}
+    if min_price is not None:
+        filters["min_price"] = min_price
+    if max_price is not None:
+        filters["max_price"] = max_price
+    if published_days is not None:
+        filters["published_days"] = published_days
+    if ship_region:
+        filters["ship_region"] = ship_region
+    if analysis_status:
+        filters["analysis_status"] = analysis_status
+    return filters
+
+
 def _build_download_headers(export_name: str) -> dict[str, str]:
     ascii_name = export_name.encode("ascii", "ignore").decode("ascii")
     if ascii_name != export_name or not ascii_name:
@@ -90,6 +112,11 @@ async def get_result_file_content(
     include_hidden: bool = Query(False),
     sort_by: str = Query("publish_time"),
     sort_order: str = Query("desc"),
+    min_price: float | None = Query(None, ge=0),
+    max_price: float | None = Query(None, ge=0),
+    published_days: int | None = Query(None, ge=1, le=365),
+    ship_region: str | None = Query(None),
+    analysis_status: str | None = Query(None, pattern="^(analyzed|failed|pending)$"),
 ):
     """读取指定的 .jsonl 文件内容，支持分页、筛选和排序"""
     if ai_recommended_only and keyword_recommended_only:
@@ -109,6 +136,9 @@ async def get_result_file_content(
             page=page,
             limit=limit,
             include_hidden=include_hidden,
+            extra_filters=_build_extra_filters(
+                min_price, max_price, published_days, ship_region, analysis_status
+            ),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -146,6 +176,11 @@ async def export_result_file_content(
     include_hidden: bool = Query(False),
     sort_by: str = Query("crawl_time"),
     sort_order: str = Query("desc"),
+    min_price: float | None = Query(None, ge=0),
+    max_price: float | None = Query(None, ge=0),
+    published_days: int | None = Query(None, ge=1, le=365),
+    ship_region: str | None = Query(None),
+    analysis_status: str | None = Query(None, pattern="^(analyzed|failed|pending)$"),
 ):
     if ai_recommended_only and keyword_recommended_only:
         raise HTTPException(status_code=400, detail="AI推荐筛选与关键词推荐筛选不能同时开启。")
@@ -161,6 +196,9 @@ async def export_result_file_content(
             sort_by=sort_by,
             sort_order=sort_order,
             include_hidden=include_hidden,
+            extra_filters=_build_extra_filters(
+                min_price, max_price, published_days, ship_region, analysis_status
+            ),
         )
         csv_text = build_results_csv(
             enrich_records_with_price_insight(results, filename)

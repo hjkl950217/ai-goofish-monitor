@@ -3,7 +3,6 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { ResultInsights, ResultItem } from '@/types/result.d.ts'
 import * as resultsApi from '@/api/results'
-import type { GetResultContentParams } from '@/api/results'
 import { useWebSocket } from '@/composables/useWebSocket'
 import * as tasksApi from '@/api/tasks'
 
@@ -29,8 +28,22 @@ export function useResults() {
   
   const STORAGE_KEY_FILTERS = 'resultFiltersV2'
 
-  function loadPersistedFilters(): Required<Omit<GetResultContentParams, 'page' | 'limit'>> {
-    const defaults: Required<Omit<GetResultContentParams, 'page' | 'limit'>> = {
+  type ResultFilters = {
+    recommended_only: boolean
+    ai_recommended_only: boolean
+    keyword_recommended_only: boolean
+    include_hidden: boolean
+    sort_by: 'crawl_time' | 'publish_time' | 'price' | 'keyword_hit_count' | 'score'
+    sort_order: 'asc' | 'desc'
+    min_price?: number
+    max_price?: number
+    published_days?: number
+    ship_region?: string
+    analysis_status?: 'analyzed' | 'failed' | 'pending'
+  }
+
+  function loadPersistedFilters(): ResultFilters {
+    const defaults: ResultFilters = {
       recommended_only: false,
       ai_recommended_only: false,
       keyword_recommended_only: false,
@@ -45,7 +58,7 @@ export function useResults() {
     return defaults
   }
 
-  const filters = reactive<Required<Omit<GetResultContentParams, 'page' | 'limit'>>>(loadPersistedFilters())
+  const filters = reactive<ResultFilters>(loadPersistedFilters())
 
   // 「新商品」标记：按结果集分别记录已读过的商品 ID
   const seenIds = ref<Set<string>>(new Set())

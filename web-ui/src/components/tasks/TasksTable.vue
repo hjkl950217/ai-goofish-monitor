@@ -358,7 +358,7 @@ const emit = defineEmits<{
               class="group hover:bg-white/80 transition-all duration-300 border-b border-slate-100/50 last:border-0"
             >
             <!-- Column 1: Status -->
-            <TableCell class="px-6 align-middle">
+            <TableCell class="px-6 py-2 align-middle">
               <div class="flex flex-col items-center gap-2.5">
                 <Switch
                   :model-value="task.enabled"
@@ -376,14 +376,14 @@ const emit = defineEmits<{
             </TableCell>
 
             <!-- Column 2: Task Info -->
-            <TableCell class="align-middle">
-              <div class="flex flex-col gap-1.5 py-1">
+            <TableCell class="py-2 align-middle">
+              <div class="flex flex-col gap-1 py-0.5">
                 <div class="flex items-center gap-2">
                   <span class="text-base font-black text-slate-800 tracking-tight group-hover:text-primary transition-colors">{{ task.task_name }}</span>
-                  <Badge 
-                    variant="outline" 
+                  <Badge
+                    variant="outline"
                     :class="[
-                      'h-4 px-1.5 text-[9px] font-black border-none tracking-tighter', 
+                      'h-4 px-1.5 text-[9px] font-black border-none tracking-tighter',
                       isKeywordMode(task) ? 'bg-blue-50 text-blue-500' : 'bg-emerald-50 text-emerald-600'
                     ]"
                   >
@@ -391,30 +391,25 @@ const emit = defineEmits<{
                     {{ isKeywordMode(task) ? t('tasks.table.modeKeyword') : t('tasks.table.modeAi') }}
                   </Badge>
                 </div>
-                
-                <div class="flex items-center gap-2">
-                   <div class="flex items-center gap-1.5 bg-slate-100/80 text-slate-600 px-2 py-0.5 rounded-md text-[11px] font-bold border border-slate-200/50">
+
+                <div class="flex items-center gap-2 min-w-0">
+                   <div class="flex items-center gap-1.5 bg-slate-100/80 text-slate-600 px-2 py-0.5 rounded-md text-[11px] font-bold border border-slate-200/50 shrink-0">
                       <Search class="w-3 h-3 text-slate-400" /> {{ task.keyword }}
                    </div>
-                   <div v-if="task.description" class="text-[11px] text-slate-400 italic line-clamp-1 max-w-[180px]" :title="task.description">
+                   <div v-if="task.description" class="text-[11px] text-slate-400 italic line-clamp-1 min-w-0" :title="task.description">
                       {{ task.description }}
                    </div>
-                </div>
-
-                <div class="flex items-center gap-2 mt-0.5">
-                   <div class="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                   <div class="ml-auto flex shrink-0 items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-tight" :title="`${resolveAccountStrategyLabel(task)} · ${resolveAccountName(task)}`">
                       <User class="w-3 h-3" /> {{ resolveAccountStrategyLabel(task) }}
-                   </div>
-                   <div class="h-1 w-1 rounded-full bg-slate-200"></div>
-                   <div class="text-[10px] font-medium text-slate-400 truncate max-w-[120px]">
-                      {{ resolveAccountName(task) }}
+                      <span class="h-1 w-1 rounded-full bg-slate-200"></span>
+                      <span class="normal-case max-w-[90px] truncate font-medium">{{ resolveAccountName(task) }}</span>
                    </div>
                 </div>
               </div>
             </TableCell>
 
             <!-- Column 3: Crawl Config -->
-            <TableCell class="align-middle text-left">
+            <TableCell class="py-2 align-middle text-left">
               <div class="space-y-2">
                 <div class="flex items-baseline gap-0.5">
                   <span class="text-[10px] font-bold text-slate-400 mr-1 italic">¥</span>
@@ -437,7 +432,7 @@ const emit = defineEmits<{
             </TableCell>
 
             <!-- Column 4: AI/Keyword Mode Details -->
-            <TableCell class="align-middle text-center">
+            <TableCell class="py-2 align-middle text-center">
               <div class="inline-flex flex-col items-center gap-2">
                 <div v-if="isKeywordMode(task)" class="bg-blue-50/30 p-2 rounded-xl border border-blue-100/50">
                   <div class="text-xs font-black text-blue-600">{{ t('tasks.table.keywordStrategies', { count: task.keyword_rules?.length || 0 }) }}</div>
@@ -465,11 +460,14 @@ const emit = defineEmits<{
             </TableCell>
 
             <!-- Column 5: Cron & Pages -->
-            <TableCell class="align-middle text-center">
+            <TableCell class="py-2 align-middle text-center">
               <div class="inline-flex flex-col items-center gap-1.5">
-                <div class="flex items-center gap-1.5 bg-slate-100/50 border border-slate-200/30 px-2 py-1 rounded-lg">
+                <div class="flex items-center gap-1.5 bg-slate-100/50 border border-slate-200/30 px-2 py-1 rounded-lg" :title="t('tasks.table.pagesHint')">
                   <Clock class="w-3 h-3 text-slate-400" />
                   <span class="text-[11px] font-black text-slate-600 tracking-tight">{{ task.cron || 'MANUAL' }}</span>
+                  <span class="flex items-center gap-0.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                    <Layers class="w-3 h-3 opacity-50" /> {{ task.max_pages || 3 }}P
+                  </span>
                 </div>
                 <div
                   class="px-2 py-1 rounded-md bg-amber-50/60 border border-amber-100/80 min-w-[112px]"
@@ -497,17 +495,11 @@ const emit = defineEmits<{
                 >
                   {{ lastRunText(task.id) }}
                 </div>
-                <div
-                  class="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest"
-                  :title="t('tasks.table.pagesHint')"
-                >
-                  <Layers class="w-3 h-3 opacity-50" /> {{ task.max_pages || 3 }}P
-                </div>
               </div>
             </TableCell>
 
             <!-- Column 6: Actions -->
-            <TableCell class="px-6 align-middle text-right">
+            <TableCell class="px-6 py-2 align-middle text-right">
               <div class="flex justify-end items-center gap-2">
                   <Button
                     v-if="!task.is_running"

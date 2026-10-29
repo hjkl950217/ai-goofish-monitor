@@ -54,6 +54,11 @@ def _build_query_conditions(
     filename: str,
     ai_recommended_only: bool,
     keyword_recommended_only: bool,
+    min_price: float | None = None,
+    max_price: float | None = None,
+    published_days: int | None = None,
+    ship_region: str | None = None,
+    analysis_status: str | None = None,
 ) -> tuple[str, list]:
     conditions = ["result_filename = ?"]
     params: list = [filename]
@@ -65,6 +70,32 @@ def _build_query_conditions(
         conditions.append("is_recommended = 1")
         conditions.append("analysis_source = ?")
         params.append("keyword")
+    if min_price is not None:
+        conditions.append("price >= ?")
+        params.append(min_price)
+    if max_price is not None:
+        conditions.append("price <= ?")
+        params.append(max_price)
+    if published_days is not None:
+        conditions.append("publish_time >= datetime('now', ?)")
+        params.append(f"-{int(published_days)} days")
+    if ship_region:
+        # 发货地只在 raw_json 里，字段名为中文
+        conditions.append("json_extract(raw_json, '$.商品信息.发货地区') LIKE ?")
+        params.append(f"%{ship_region}%")
+    if analysis_status == "analyzed":
+        conditions.append(
+            "COALESCE(json_extract(raw_json, '$.ai_analysis.reason'), '') != ''"
+        )
+    elif analysis_status == "failed":
+        conditions.append(
+            "COALESCE(json_extract(raw_json, '$.ai_analysis.error'), '') != ''"
+        )
+    elif analysis_status == "pending":
+        conditions.append(
+            "COALESCE(json_extract(raw_json, '$.ai_analysis.reason'), '') = ''"
+            " AND COALESCE(json_extract(raw_json, '$.ai_analysis.error'), '') = ''"
+        )
     return " AND ".join(conditions), params
 
 
@@ -122,11 +153,21 @@ def _load_filtered_records_from_conn(
     sort_by: str,
     sort_order: str,
     include_hidden: bool,
+    min_price: float | None = None,
+    max_price: float | None = None,
+    published_days: int | None = None,
+    ship_region: str | None = None,
+    analysis_status: str | None = None,
 ) -> list[dict]:
     where_clause, params = _build_query_conditions(
         filename=filename,
         ai_recommended_only=ai_recommended_only,
         keyword_recommended_only=keyword_recommended_only,
+        min_price=min_price,
+        max_price=max_price,
+        published_days=published_days,
+        ship_region=ship_region,
+        analysis_status=analysis_status,
     )
     order_clause = _sort_expression(sort_by, sort_order)
     rows = conn.execute(
@@ -320,6 +361,7 @@ async def query_result_records(
     page: int,
     limit: int,
     include_hidden: bool = False,
+    extra_filters: dict | None = None,
 ) -> tuple[int, list[dict]]:
     return await asyncio.to_thread(
         _query_result_records_sync,
@@ -331,6 +373,7 @@ async def query_result_records(
         page,
         limit,
         include_hidden,
+        extra_filters,
     )
 
 
@@ -343,6 +386,7 @@ def _query_result_records_sync(
     page: int,
     limit: int,
     include_hidden: bool,
+    extra_filters: dict | None = None,
 ) -> tuple[int, list[dict]]:
     bootstrap_sqlite_storage()
     offset = max(page - 1, 0) * limit
@@ -355,6 +399,7 @@ def _query_result_records_sync(
             sort_by=sort_by,
             sort_order=sort_order,
             include_hidden=include_hidden,
+            **(extra_filters or {}),
         )
     total = len(records)
     return total, records[offset: offset + limit]
@@ -368,6 +413,7 @@ async def load_all_result_records(
     sort_by: str,
     sort_order: str,
     include_hidden: bool = False,
+    extra_filters: dict | None = None,
 ) -> list[dict]:
     return await asyncio.to_thread(
         _load_all_result_records_sync,
@@ -377,6 +423,7 @@ async def load_all_result_records(
         sort_by,
         sort_order,
         include_hidden,
+        extra_filters,
     )
 
 
@@ -387,6 +434,7 @@ def _load_all_result_records_sync(
     sort_by: str,
     sort_order: str,
     include_hidden: bool,
+    extra_filters: dict | None = None,
 ) -> list[dict]:
     bootstrap_sqlite_storage()
     with sqlite_connection() as conn:
@@ -398,6 +446,7 @@ def _load_all_result_records_sync(
             sort_by=sort_by,
             sort_order=sort_order,
             include_hidden=include_hidden,
+            **(extra_filters or {}),
         )
 
 

@@ -290,10 +290,13 @@ async function onToggleFavorite() {
         >{{ info.当前售价 }}</span>
         <span v-if="hasValue(info['商品原价'])" class="text-xs text-slate-400 line-through mb-1">{{ info['商品原价'] }}</span>
       </div>
-      <div v-if="priceDelta !== 0" class="mt-1 flex items-center gap-1 text-[11px]">
-        <component :is="priceDelta < 0 ? TrendingDown : TrendingUp" class="w-3.5 h-3.5 shrink-0" :class="deltaTone" />
-        <span class="text-slate-400">{{ t('results.card.priceSinceAdded') }}</span>
-        <span class="font-semibold" :class="deltaTone">{{ priceDelta < 0 ? '-' : '+' }}{{ formattedDelta }}</span>
+      <!-- 固定占位：没有价格变动时不渲染内容，但保留高度，避免同一行卡片被顶得不齐 -->
+      <div class="mt-1 flex min-h-[18px] items-center gap-1 text-[11px]">
+        <template v-if="priceDelta !== 0">
+          <component :is="priceDelta < 0 ? TrendingDown : TrendingUp" class="w-3.5 h-3.5 shrink-0" :class="deltaTone" />
+          <span class="text-slate-400">{{ t('results.card.priceSinceAdded') }}</span>
+          <span class="font-semibold" :class="deltaTone">{{ priceDelta < 0 ? '-' : '+' }}{{ formattedDelta }}</span>
+        </template>
       </div>
     </CardHeader>
 

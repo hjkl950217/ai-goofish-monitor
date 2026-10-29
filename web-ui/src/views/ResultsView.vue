@@ -140,7 +140,17 @@ function syncQuery() {
   if (filters.include_hidden) query.hidden = '1'
   if (filters.sort_by !== 'publish_time') query.sort = filters.sort_by
   if (filters.sort_order !== 'desc') query.order = filters.sort_order
+  if (filters.min_price !== undefined) query.min_price = String(filters.min_price)
+  if (filters.max_price !== undefined) query.max_price = String(filters.max_price)
+  if (filters.published_days !== undefined) query.days = String(filters.published_days)
+  if (filters.ship_region) query.region = filters.ship_region
+  if (filters.analysis_status) query.analysis = filters.analysis_status
   router.replace({ query })
+}
+
+function queryString(key: string): string | undefined {
+  const value = route.query[key]
+  return typeof value === 'string' && value ? value : undefined
 }
 
 function applyQuery() {
@@ -151,6 +161,18 @@ function applyQuery() {
   if (q.hidden === '1') filters.include_hidden = true
   if (typeof q.sort === 'string' && q.sort) filters.sort_by = q.sort as typeof filters.sort_by
   if (q.order === 'asc' || q.order === 'desc') filters.sort_order = q.order
+  const minPrice = Number(queryString('min_price'))
+  if (Number.isFinite(minPrice) && minPrice > 0) filters.min_price = minPrice
+  const maxPrice = Number(queryString('max_price'))
+  if (Number.isFinite(maxPrice) && maxPrice > 0) filters.max_price = maxPrice
+  const days = Number(queryString('days'))
+  if (Number.isFinite(days) && days > 0) filters.published_days = days
+  const region = queryString('region')
+  if (region) filters.ship_region = region
+  const analysis = queryString('analysis')
+  if (analysis === 'analyzed' || analysis === 'failed' || analysis === 'pending') {
+    filters.analysis_status = analysis
+  }
 }
 
 onMounted(applyQuery)
@@ -163,6 +185,11 @@ watch(
     () => filters.include_hidden,
     () => filters.sort_by,
     () => filters.sort_order,
+    () => filters.min_price,
+    () => filters.max_price,
+    () => filters.published_days,
+    () => filters.ship_region,
+    () => filters.analysis_status,
   ],
   () => syncQuery(),
 )

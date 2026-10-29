@@ -10,6 +10,11 @@ export interface GetResultContentParams {
   sort_order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
+  min_price?: number;
+  max_price?: number;
+  published_days?: number;
+  ship_region?: string;
+  analysis_status?: 'analyzed' | 'failed' | 'pending';
 }
 
 export async function getResultFiles(): Promise<string[]> {
