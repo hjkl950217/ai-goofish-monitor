@@ -36,7 +36,7 @@ const navItems = computed(() => [
       :key="item.to"
       :to="item.to"
       v-slot="{ isActive }"
-      class="group relative flex items-center px-3 py-2.5 rounded-xl transition-all duration-200 overflow-hidden"
+      class="group relative flex items-center px-2.5 py-2.5 rounded-xl transition-all duration-200 overflow-hidden"
       @click="emit('navigate')"
     >
       <!-- Active Background Effect -->
@@ -62,7 +62,7 @@ const navItems = computed(() => [
           {{ item.label }}
         </span>
         <ChevronRight
-          class="ml-1.5 w-4 h-4 shrink-0 text-primary transition-opacity"
+          class="ml-1 w-3.5 h-3.5 shrink-0 text-primary transition-opacity"
           :class="isActive ? 'opacity-100' : 'opacity-0'"
         />
       </div>
