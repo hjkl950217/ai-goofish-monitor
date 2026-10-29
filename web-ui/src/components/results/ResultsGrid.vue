@@ -13,6 +13,7 @@ const { t } = useI18n()
 
 const emit = defineEmits<{
   (e: 'toggle-block', item: ResultItem): void
+  (e: 'refreshed'): void
 }>()
 const skeletonItems = Array.from({ length: 8 }, (_, index) => index)
 </script>
@@ -56,6 +57,7 @@ const skeletonItems = Array.from({ length: 8 }, (_, index) => index)
         :key="item.item_info.item_id"
         :item="item"
         @toggle-block="emit('toggle-block', $event)"
+        @refreshed="emit('refreshed')"
       />
     </div>
   </div>

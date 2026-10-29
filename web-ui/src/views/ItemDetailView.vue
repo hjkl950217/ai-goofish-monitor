@@ -5,11 +5,12 @@ import { useI18n } from 'vue-i18n'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Loader2, ArrowLeft, ExternalLink, ImageOff, Package, TrendingDown, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { Loader2, ArrowLeft, ExternalLink, ImageOff, Package, TrendingDown, TrendingUp, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-vue-next'
 import type { ResultItem } from '@/types/result.d.ts'
 import { criteriaLabel, criteriaStatusLabel, criteriaStatusTone } from '@/constants/criteria'
 import { formatLocalDateTime } from '@/i18n'
 import { getResultContent } from '@/api/results'
+import { toast } from '@/components/ui/toast/use-toast'
 
 interface ItemImage {
   name: string
@@ -158,6 +159,31 @@ function goItem(id: string | null) {
   router.push({ name: 'ItemDetail', params: { itemId: id } })
 }
 
+const refreshing = ref(false)
+
+// 手动拉一次详情：标题、描述、价格、图片都会更新，不重跑 AI
+async function refreshLatest() {
+  if (refreshing.value) return
+  refreshing.value = true
+  try {
+    const res = await fetch(`/api/items/${encodeURIComponent(itemId.value)}/refresh`, { method: 'POST' })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.detail || `HTTP ${res.status}`)
+    }
+    await load()
+    toast({ title: t('itemDetail.refreshDone') })
+  } catch (e) {
+    toast({
+      title: t('itemDetail.refreshFailed'),
+      description: (e as Error).message,
+      variant: 'destructive',
+    })
+  } finally {
+    refreshing.value = false
+  }
+}
+
 onMounted(load)
 watch(itemId, load)
 watch(item, () => {
@@ -191,6 +217,17 @@ watch(item, () => {
           @click="goItem(neighborIds.next)"
         >
           <ChevronRight class="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          :disabled="refreshing"
+          :title="t('itemDetail.refresh')"
+          @click="refreshLatest"
+        >
+          <Loader2 v-if="refreshing" class="mr-1 h-4 w-4 animate-spin" />
+          <RefreshCw v-else class="mr-1 h-4 w-4" />
+          {{ refreshing ? t('itemDetail.refreshing') : t('itemDetail.refresh') }}
         </Button>
         <a
           v-if="info.link"

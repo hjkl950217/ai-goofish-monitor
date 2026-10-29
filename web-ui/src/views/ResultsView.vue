@@ -229,7 +229,7 @@ watch(
 
     <ResultsInsightsPanel :insights="insights" :selected-task-label="selectedTaskLabel" />
 
-    <ResultsGrid :results="results" :is-loading="isLoading" @toggle-block="toggleItemBlock" />
+    <ResultsGrid :results="results" :is-loading="isLoading" @toggle-block="toggleItemBlock" @refreshed="refreshResults" />
 
     <Dialog v-model:open="isDeleteDialogOpen">
       <DialogContent class="sm:max-w-[420px]">

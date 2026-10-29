@@ -13,7 +13,7 @@ import {
 import Badge from '@/components/ui/badge/Badge.vue'
 import { toast } from '@/components/ui/toast/use-toast'
 import { useFavorites } from '@/composables/useFavorites'
-import { ExternalLink, TrendingUp, TrendingDown, Info, User, Clock, CheckCircle2, XCircle, AlertCircle, EyeOff, Eye, MapPin, CalendarDays, Heart, Tag } from 'lucide-vue-next'
+import { ExternalLink, TrendingUp, TrendingDown, Info, User, Clock, CheckCircle2, XCircle, AlertCircle, EyeOff, Eye, MapPin, CalendarDays, Heart, Tag, RefreshCw, Loader2 } from 'lucide-vue-next'
 import { formatLocalDateTime } from '@/i18n'
 
 interface Props {
@@ -23,6 +23,7 @@ interface Props {
 const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'toggle-block', item: ResultItem): void
+  (e: 'refreshed'): void
 }>()
 const { t } = useI18n()
 
@@ -198,6 +199,34 @@ async function onToggleFavorite() {
     })
   }
 }
+
+const refreshing = ref(false)
+
+// 手动拉一次详情：图片、标题、描述、价格都会更新
+async function onRefresh() {
+  const id = String(info.item_id ?? '')
+  if (!id || refreshing.value) return
+  refreshing.value = true
+  try {
+    const filename = props.item._meta?.result_filename
+    const query = filename ? `?result_filename=${encodeURIComponent(filename)}` : ''
+    const res = await fetch(`/api/items/${encodeURIComponent(id)}/refresh${query}`, { method: 'POST' })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.detail || `HTTP ${res.status}`)
+    }
+    toast({ title: t('results.card.refreshDone') })
+    emit('refreshed')
+  } catch (error) {
+    toast({
+      title: t('results.card.refreshFailed'),
+      description: error instanceof Error ? error.message : String(error),
+      variant: 'destructive',
+    })
+  } finally {
+    refreshing.value = false
+  }
+}
 </script>
 
 <template>
@@ -230,6 +259,17 @@ async function onToggleFavorite() {
         </Badge>
       </div>
       <div class="absolute top-3 right-3 flex gap-1.5">
+        <button
+          type="button"
+          :disabled="refreshing"
+          :title="t('results.card.refresh')"
+          :aria-label="t('results.card.refresh')"
+          @click.stop="onRefresh"
+          class="flex rounded-full bg-white/30 p-1.5 text-white backdrop-blur-md border border-white/40 shadow-sm transition-opacity disabled:cursor-wait disabled:opacity-60 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 hover:bg-white/50"
+        >
+          <Loader2 v-if="refreshing" class="w-4 h-4 animate-spin" />
+          <RefreshCw v-else class="w-4 h-4" />
+        </button>
         <button
           type="button"
           :disabled="favPending"
