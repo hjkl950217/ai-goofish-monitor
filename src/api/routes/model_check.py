@@ -28,7 +28,8 @@ async def get_status():
 @router.post("/start")
 async def start(req: ModelCheckRequest):
     """后台启动历史校验，立即返回。"""
-    if svc.get_status().get("running"):
+    # 先同步置为运行中再起后台任务，否则返回的状态还是旧的，前端会当成没启动
+    if not svc.begin():
         raise HTTPException(status_code=409, detail="已有型号校验任务在运行")
 
     async def _runner():

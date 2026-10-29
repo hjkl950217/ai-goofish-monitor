@@ -41,6 +41,31 @@ def get_status() -> Dict[str, Any]:
     return dict(_status)
 
 
+def begin() -> bool:
+    """同步把状态置为运行中，返回 False 表示已有任务在跑。
+
+    接口层在 create_task 之前调用，这样点完按钮第一次查状态就能看到「校验中」，
+    不会因为后台任务还没跑到赋值而显示成空闲。
+    """
+    global _cancel_event
+    if _status.get("running"):
+        return False
+    _cancel_event = asyncio.Event()
+    _status.update({
+        "running": True,
+        "total": 0,
+        "done": 0,
+        "matched": 0,
+        "removed": 0,
+        "failed": 0,
+        "message": "正在扫描待校验条目…",
+        "started_at": datetime.now().isoformat(timespec="seconds"),
+        "finished_at": None,
+        "recent": [],
+    })
+    return True
+
+
 def _push_recent(line: str) -> None:
     recent = _status.setdefault("recent", [])
     recent.append(line)
@@ -130,22 +155,24 @@ async def run_check(
         raise RuntimeError(f"型号判断提示词不可用: {exc}") from exc
 
     async with _lock:
-        if _status.get("running"):
-            raise RuntimeError("已有型号校验任务在运行")
-        _cancel_event = asyncio.Event()
+        if not _status.get("running"):
+            _status.update({
+                "running": True,
+                "started_at": datetime.now().isoformat(timespec="seconds"),
+                "finished_at": None,
+            })
+        if _cancel_event is None:
+            _cancel_event = asyncio.Event()
 
     targets = await asyncio.to_thread(fetch_candidates, result_filename)
 
     _status.update({
-        "running": True,
         "total": len(targets),
         "done": 0,
         "matched": 0,
         "removed": 0,
         "failed": 0,
         "message": f"待校验 {len(targets)} 条",
-        "started_at": datetime.now().isoformat(timespec="seconds"),
-        "finished_at": None,
         "recent": [],
     })
 

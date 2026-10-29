@@ -224,6 +224,12 @@ const modelCheckStatus = ref<ModelCheckStatus | null>(null)
 const isModelCheckBusy = ref(false)
 let pollTimer: number | null = null
 
+const modelCheckPercent = computed(() => {
+  const status = modelCheckStatus.value
+  if (!status || !status.total) return 0
+  return Math.min(100, Math.round((status.done / status.total) * 100))
+})
+
 function schedulePoll() {
   if (pollTimer !== null) return
   pollTimer = window.setTimeout(async () => {
@@ -246,6 +252,7 @@ async function handleStartModelCheck() {
   try {
     const res = await startModelCheck()
     modelCheckStatus.value = res.status
+    notifySuccess(t('settings.ai.modelCheck.historyStarted'))
     schedulePoll()
   } catch (e) {
     notifyError(t('settings.ai.modelCheck.historyStart'), (e as Error).message)
@@ -463,6 +470,12 @@ watch(selectedPrompt, async (value) => {
                 · 删除 {{ modelCheckStatus.removed }}
                 · 未判出 {{ modelCheckStatus.failed }}
               </span>
+            </div>
+            <div v-if="(modelCheckStatus?.total ?? 0) > 0" class="flex items-center gap-2">
+              <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                <div class="h-full rounded-full bg-primary transition-all" :style="{ width: `${modelCheckPercent}%` }"></div>
+              </div>
+              <span class="w-9 text-right text-xs text-slate-500">{{ modelCheckPercent }}%</span>
             </div>
             <p v-if="modelCheckStatus?.message" class="text-xs text-slate-500">{{ modelCheckStatus.message }}</p>
             <div
