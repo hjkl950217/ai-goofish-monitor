@@ -36,7 +36,8 @@ function handleWheel(event: WheelEvent) {
   if (!listbox) return
   const target = event.target
   if (target instanceof Node && listbox.contains(target)) return
-  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
+  // Escape 要能冒泡到 window，reka 的按键监听挂在 window 上
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
 }
 
 let wheelBound = false
