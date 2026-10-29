@@ -18,6 +18,10 @@ FROM ${BASE_IMAGE}
 
 WORKDIR /app
 
+# CI 传入提交号，系统状态页用它核对部署的是哪一版
+ARG GIT_SHA=""
+ENV APP_VERSION=${GIT_SHA}
+
 COPY --from=frontend-builder /dist /app/dist
 
 COPY src /app/src

@@ -321,6 +321,7 @@ async def get_system_status(
     ai_settings = AISettings()
     notification_settings = load_notification_settings()
     configured_channels = build_configured_channels(notification_settings)
+    raw_version = os.getenv("APP_VERSION", "").strip()
     running_task_ids = [
         task_id
         for task_id, process in process_service.processes.items()
@@ -347,7 +348,8 @@ async def get_system_status(
         },
         "configured_notification_channels": configured_channels,
         "app": {
-            "version": os.getenv("APP_VERSION", "").strip() or None,
+            # CI 注入的是完整提交号，页面只显示前 12 位
+            "version": raw_version[:12] or None,
             "uptime_seconds": int(time.time() - _PROCESS_START),
             "frontend_built_at": _frontend_built_at(),
         },

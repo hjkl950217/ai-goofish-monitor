@@ -139,6 +139,7 @@ jobs:
           push: true
           build-args: |
             BASE_IMAGE=${{ needs.build-base.outputs.base_image }}
+            GIT_SHA=${{ github.sha }}
           tags: ${{ steps.prepare.outputs.app_tags }}
           cache-from: type=gha,scope=ai-goofish-release-docker
           cache-to: type=gha,scope=ai-goofish-release-docker,mode=min,ignore-error=true
