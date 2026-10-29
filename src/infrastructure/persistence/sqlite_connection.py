@@ -13,6 +13,9 @@ from src.infrastructure.persistence.storage_names import DEFAULT_DATABASE_PATH
 
 
 BUSY_TIMEOUT_MS = 5000
+SCHEMA_VERSION = 1
+
+_config_hint_shown = False
 
 SCHEMA_STATEMENTS = (
     """
@@ -158,11 +161,24 @@ def _apply_pragmas(conn: sqlite3.Connection) -> None:
 
 
 def init_schema(conn: sqlite3.Connection) -> None:
+    global _config_hint_shown
+    if not _config_hint_shown:
+        _config_hint_shown = True
+        print("[提示] config.json 已不再承载任务配置，任务在 sqlite 里")
     for statement in SCHEMA_STATEMENTS:
         conn.execute(statement)
-    _migrate_result_items_status(conn)
-    _migrate_result_items_refresh(conn)
+    _apply_migrations(conn)
     conn.commit()
+
+
+def _apply_migrations(conn: sqlite3.Connection) -> None:
+    """按 user_version 顺序补迁移；已是最新版本的库不再逐列探测。"""
+    version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+    if version < 1:
+        # 老库（user_version=0）列可能已补过，迁移函数内部按列探测，重复执行不报错
+        _migrate_result_items_status(conn)
+        _migrate_result_items_refresh(conn)
+        conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 
 def _migrate_result_items_refresh(conn: sqlite3.Connection) -> None:

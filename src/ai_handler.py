@@ -215,7 +215,12 @@ def cleanup_task_images(task_name):
         safe_print(f"   [清理] 任务 '{task_name}' 的临时图片目录不存在: {task_image_dir}")
 
 
-def cleanup_ai_logs(logs_dir: str, keep_days: int = 1) -> None:
+def cleanup_ai_logs(logs_dir: str, keep_days: int | None = None) -> None:
+    if keep_days is None:
+        try:
+            keep_days = int(os.getenv("AI_LOG_RETENTION_DAYS", "1"))
+        except ValueError:
+            keep_days = 1
     try:
         cutoff = datetime.now() - timedelta(days=keep_days)
         for filename in os.listdir(logs_dir):
@@ -427,7 +432,7 @@ async def get_ai_analysis(product_data, image_paths=None, prompt_text=""):
         # 创建logs文件夹
         logs_dir = os.path.join("logs", "ai")
         os.makedirs(logs_dir, exist_ok=True)
-        cleanup_ai_logs(logs_dir, keep_days=1)
+        cleanup_ai_logs(logs_dir)
 
         # 生成日志文件名（当前时间）
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")

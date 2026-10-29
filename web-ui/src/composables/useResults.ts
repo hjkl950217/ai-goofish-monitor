@@ -47,6 +47,61 @@ export function useResults() {
 
   const filters = reactive<Required<Omit<GetResultContentParams, 'page' | 'limit'>>>(loadPersistedFilters())
 
+  // 「新商品」标记：按结果集分别记录已读过的商品 ID
+  const seenIds = ref<Set<string>>(new Set())
+  const newItemIds = ref<Set<string>>(new Set())
+  let seenLoadedFor: string | null = null
+
+  function resultItemKey(item: ResultItem): string {
+    return String(item.商品信息?.商品ID ?? item._meta?.item_id ?? '')
+  }
+
+  function seenStorageKey(): string {
+    return `resultSeen:${selectedFile.value ?? ''}`
+  }
+
+  function loadSeen() {
+    const next = new Set<string>()
+    if (selectedFile.value) {
+      try {
+        const raw = localStorage.getItem(seenStorageKey())
+        if (raw) {
+          for (const id of JSON.parse(raw) as string[]) next.add(id)
+        }
+      } catch {
+        // 存储损坏时按全部未读处理
+      }
+    }
+    seenIds.value = next
+  }
+
+  function computeNewIds() {
+    const fresh = new Set<string>()
+    for (const item of results.value) {
+      const key = resultItemKey(item)
+      if (key && !seenIds.value.has(key)) fresh.add(key)
+    }
+    newItemIds.value = fresh
+  }
+
+  function persistSeen() {
+    if (!selectedFile.value) return
+    try {
+      localStorage.setItem(seenStorageKey(), JSON.stringify([...seenIds.value].slice(-2000)))
+    } catch {
+      // 配额不足时放弃持久化，不阻塞页面
+    }
+  }
+
+  function markAllSeen() {
+    for (const item of results.value) {
+      const key = resultItemKey(item)
+      if (key) seenIds.value.add(key)
+    }
+    persistSeen()
+    newItemIds.value = new Set()
+  }
+
   const isLoading = ref(false)
   const error = ref<Error | null>(null)
   const { on } = useWebSocket()
@@ -92,6 +147,11 @@ export function useResults() {
       return
     }
 
+    if (seenLoadedFor !== selectedFile.value) {
+      loadSeen()
+      seenLoadedFor = selectedFile.value
+    }
+
     isLoading.value = true
     error.value = null
     try {
@@ -102,6 +162,7 @@ export function useResults() {
       })
       results.value = data.items
       totalItems.value = data.total_items
+      computeNewIds()
     } catch (e) {
       if (e instanceof Error) error.value = e
       results.value = []
@@ -312,5 +373,8 @@ export function useResults() {
     saveBlacklistRules,
     fileOptions,
     isFileOptionsReady,
+    newItemIds,
+    markAllSeen,
+    resultItemKey,
   }
 }

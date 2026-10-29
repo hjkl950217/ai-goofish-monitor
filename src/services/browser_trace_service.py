@@ -10,12 +10,15 @@ import asyncio
 import json
 import os
 import re
+import shutil
 from datetime import datetime
 from typing import Optional
 
 TRACE_ENV = "AGM_BROWSER_TRACE"
 TRACE_DIR_ENV = "AGM_TRACE_DIR"
+MAX_MB_ENV = "AGM_TRACE_MAX_MB"
 DEFAULT_TRACE_DIR = "/tmp/agm-trace"
+DEFAULT_MAX_MB = 200
 
 TARGET_HOSTS = ("goofish.com", "taobao.com")
 CAPTURE_RESOURCE_TYPES = {"xhr", "fetch", "document"}
@@ -64,6 +67,30 @@ def is_enabled() -> bool:
 
 def base_dir() -> str:
     return (os.getenv(TRACE_DIR_ENV) or "").strip() or DEFAULT_TRACE_DIR
+
+
+def _enforce_size_limit(root: str) -> None:
+    """总量超过上限就从最旧的会话目录开始删；删失败只打日志。"""
+    try:
+        max_bytes = int(os.getenv(MAX_MB_ENV, str(DEFAULT_MAX_MB))) * 1024 * 1024
+    except ValueError:
+        max_bytes = DEFAULT_MAX_MB * 1024 * 1024
+    sessions = []
+    total = 0
+    for entry in os.scandir(root):
+        if not entry.is_dir():
+            continue
+        size = sum(f.stat().st_size for f in os.scandir(entry.path) if f.is_file())
+        sessions.append((entry.stat().st_mtime, entry.path, size))
+        total += size
+    for _, path, size in sorted(sessions):  # 最旧在前
+        if total <= max_bytes:
+            break
+        try:
+            shutil.rmtree(path)
+            total -= size
+        except Exception as exc:  # noqa: BLE001
+            print(f"[TRACE] 清理超限目录失败: {path}: {exc}")
 
 
 class TraceSession:
@@ -151,6 +178,7 @@ def start(task_name: str, state_file: str = "") -> Optional[TraceSession]:
     safe_name = _SAFE_NAME.sub("_", str(task_name or "task"))[:40]
     root = base_dir()
     os.makedirs(root, exist_ok=True)
+    _enforce_size_limit(root)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     path = os.path.join(root, f"{safe_name}_{stamp}")
     suffix = 1

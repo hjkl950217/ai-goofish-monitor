@@ -1,5 +1,7 @@
 import asyncio
 import json
+import os
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -173,3 +175,59 @@ def test_snapshot_writes_cookies_and_storage(tmp_path):
     ]
     storage = json.loads((tmp_path / "storage.json").read_text(encoding="utf-8"))
     assert storage["localStorage"] == {"k": "v"}
+
+
+def _fill_session(path: Path, size: int) -> None:
+    path.mkdir()
+    (path / "network.jsonl").write_bytes(b"x" * size)
+
+
+def test_enforce_size_limit_deletes_oldest(tmp_path, monkeypatch):
+    monkeypatch.setenv(trace.MAX_MB_ENV, "1")
+    old = tmp_path / "task_20260101_000000"
+    new = tmp_path / "task_20260102_000000"
+    _fill_session(old, 800 * 1024)
+    _fill_session(new, 800 * 1024)
+    past = time.time() - 1000
+    os.utime(old, (past, past))
+
+    trace._enforce_size_limit(str(tmp_path))
+
+    assert not old.exists()
+    assert new.exists()
+
+
+def test_enforce_size_limit_under_limit_keeps_all(tmp_path, monkeypatch):
+    monkeypatch.setenv(trace.MAX_MB_ENV, "200")
+    session = tmp_path / "task_20260101_000000"
+    _fill_session(session, 1024)
+
+    trace._enforce_size_limit(str(tmp_path))
+
+    assert session.exists()
+
+
+def test_enforce_size_limit_invalid_env_keeps_all(tmp_path, monkeypatch):
+    monkeypatch.setenv(trace.MAX_MB_ENV, "abc")
+    session = tmp_path / "task_20260101_000000"
+    _fill_session(session, 1024)
+
+    trace._enforce_size_limit(str(tmp_path))
+
+    assert session.exists()
+
+
+def test_start_enforces_size_limit(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGM_BROWSER_TRACE", "true")
+    monkeypatch.setenv("AGM_TRACE_DIR", str(tmp_path))
+    monkeypatch.setenv(trace.MAX_MB_ENV, "1")
+    old = tmp_path / "old_task_20260101_000000"
+    _fill_session(old, 1200 * 1024)
+
+    session = trace.start("new task")
+    try:
+        assert session is not None
+        assert not old.exists()
+        assert Path(session.path).exists()
+    finally:
+        session.close()

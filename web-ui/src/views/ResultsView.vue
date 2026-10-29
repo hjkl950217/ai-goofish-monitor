@@ -39,6 +39,8 @@ const {
   saveBlacklistRules,
   fileOptions,
   isFileOptionsReady,
+  newItemIds,
+  markAllSeen,
 } = useResults()
 
 const isDeleteDialogOpen = ref(false)
@@ -188,8 +190,10 @@ watch(
       v-model:sortBy="filters.sort_by"
       v-model:sortOrder="filters.sort_order"
       :is-loading="isLoading"
+      :new-count="newItemIds.size"
       @refresh="refreshResults"
       @reanalyze-finished="refreshResults"
+      @mark-all-seen="markAllSeen"
       @manage-blacklist="openBlacklistDialog"
       @export="handleExportResults"
       @delete="openDeleteDialog"
@@ -197,7 +201,7 @@ watch(
 
     <ResultsInsightsPanel :insights="insights" :selected-task-label="selectedTaskLabel" />
 
-    <ResultsGrid :results="results" :is-loading="isLoading" @toggle-block="toggleItemBlock" />
+    <ResultsGrid :results="results" :is-loading="isLoading" :new-ids="newItemIds" @toggle-block="toggleItemBlock" />
 
     <Dialog v-model:open="isDeleteDialogOpen">
       <DialogContent class="sm:max-w-[420px]">

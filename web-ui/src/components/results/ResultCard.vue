@@ -18,6 +18,7 @@ import { formatLocalDateTime } from '@/i18n'
 
 interface Props {
   item: ResultItem
+  isNew?: boolean
 }
 
 const props = defineProps<Props>()
@@ -265,6 +266,12 @@ async function onToggleFavorite() {
 
     <CardHeader class="p-4 pb-2">
       <div class="flex justify-between items-start gap-3">
+        <span
+          v-if="props.isNew"
+          class="mt-0.5 shrink-0 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] font-bold text-white"
+        >
+          {{ t('results.card.isNew') }}
+        </span>
         <CardTitle class="text-base font-semibold text-slate-800 line-clamp-2 leading-snug flex-grow h-10">
           <a
             href="#"
