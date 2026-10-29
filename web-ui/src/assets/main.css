@@ -83,6 +83,8 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    /* reka-ui 打开下拉会给 body 加 overflow:hidden，body 是根滚动体，位置会被归零导致页面跳回顶部 */
+    overflow-y: visible !important;
   }
 }
 
