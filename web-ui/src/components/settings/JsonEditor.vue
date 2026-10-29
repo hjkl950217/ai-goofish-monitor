@@ -122,7 +122,7 @@ function format() {
           <div
             v-for="n in lineNumbers"
             :key="n"
-            :class="focused && n - 1 === caretLine ? 'bg-primary/10 font-medium text-primary' : ''"
+            :class="focused && n - 1 === caretLine ? 'font-semibold text-primary' : ''"
           >{{ n }}</div>
         </div>
       </div>
