@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatJsonc, stripJsonc, validateJsonc } from '@/lib/jsonc'
 
@@ -10,8 +10,16 @@ const { t } = useI18n()
 const editor = ref<HTMLTextAreaElement | null>(null)
 const highlight = ref<HTMLElement | null>(null)
 const gutter = ref<HTMLElement | null>(null)
+const caretLayer = ref<HTMLElement | null>(null)
 
 const lineNumbers = computed(() => props.modelValue.replace(/\n$/, '').split('\n').length)
+
+// 行高与 textarea 的 leading-5、上内边距 py-3 对应
+const LINE_HEIGHT = 20
+const LINE_PADDING = 12
+
+const caretLine = ref(0)
+const focused = ref(false)
 
 function escapeHtml(text: string) {
   return text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string))
@@ -51,6 +59,17 @@ const error = computed(() => {
 
 function onInput(event: Event) {
   emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
+  // 等 props 更新后再按新文本算行号，否则按回车时光标行会差一行
+  void nextTick(trackCaret)
+}
+
+function onFocus() {
+  focused.value = true
+  trackCaret()
+}
+
+function onBlur() {
+  focused.value = false
 }
 
 // 行号层与着色层跟随 textarea 滚动
@@ -59,6 +78,14 @@ function syncScroll() {
   if (!el) return
   if (highlight.value) highlight.value.style.transform = `translate(${-el.scrollLeft}px, ${-el.scrollTop}px)`
   if (gutter.value) gutter.value.style.transform = `translateY(${-el.scrollTop}px)`
+  if (caretLayer.value) caretLayer.value.style.transform = `translateY(${-el.scrollTop}px)`
+}
+
+// 光标所在行，用来高亮整行和行号
+function trackCaret() {
+  const el = editor.value
+  if (!el) return
+  caretLine.value = props.modelValue.slice(0, el.selectionStart ?? 0).split('\n').length - 1
 }
 
 // 格式后滚回顶部，从头看一遍
@@ -69,6 +96,7 @@ function format() {
   if (!el) return
   el.scrollTop = 0
   el.scrollLeft = 0
+  caretLine.value = 0
   syncScroll()
 }
 </script>
@@ -91,10 +119,21 @@ function format() {
     <div class="relative flex h-[56vh] min-h-[380px] overflow-hidden font-mono text-xs leading-5">
       <div class="w-11 shrink-0 select-none overflow-hidden border-r border-slate-100 bg-slate-50 py-3 text-right text-slate-400">
         <div ref="gutter" class="pr-2">
-          <div v-for="n in lineNumbers" :key="n">{{ n }}</div>
+          <div
+            v-for="n in lineNumbers"
+            :key="n"
+            :class="focused && n - 1 === caretLine ? 'bg-primary/10 font-medium text-primary' : ''"
+          >{{ n }}</div>
         </div>
       </div>
       <div class="relative flex-1 overflow-hidden">
+        <div ref="caretLayer" class="pointer-events-none absolute inset-0">
+          <div
+            v-if="focused"
+            class="absolute inset-x-0 bg-primary/10"
+            :style="{ top: `${LINE_PADDING + caretLine * LINE_HEIGHT}px`, height: `${LINE_HEIGHT}px` }"
+          ></div>
+        </div>
         <pre
           ref="highlight"
           aria-hidden="true"
@@ -109,6 +148,11 @@ function format() {
           wrap="off"
           @input="onInput"
           @scroll="syncScroll"
+          @keyup="trackCaret"
+          @click="trackCaret"
+          @select="trackCaret"
+          @focus="onFocus"
+          @blur="onBlur"
         ></textarea>
       </div>
     </div>
