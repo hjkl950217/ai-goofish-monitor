@@ -56,6 +56,42 @@ def test_legacy_v0_db_upgrades_without_duplicate_column(tmp_path):
     conn.close()
 
 
+def test_v1_db_imports_criteria_file_into_task(tmp_path):
+    """v1 库升级时把共享文件里的判断标准搬进任务记录，页面不会显示空白。"""
+    criteria = tmp_path / "n190_criteria.txt"
+    criteria.write_text("OLD_CRITERIA", encoding="utf-8")
+
+    conn = sqlite3.connect(str(tmp_path / "v1.db"))
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        "CREATE TABLE tasks ("
+        " id INTEGER PRIMARY KEY,"
+        " task_name TEXT NOT NULL,"
+        " ai_prompt_criteria_file TEXT NOT NULL"
+        ")"
+    )
+    conn.execute(
+        "INSERT INTO tasks (id, task_name, ai_prompt_criteria_file) VALUES (1, 'N190', ?)",
+        (str(criteria),),
+    )
+    conn.execute(
+        "INSERT INTO tasks (id, task_name, ai_prompt_criteria_file) VALUES (2, 'M1100', '')"
+    )
+    conn.execute("PRAGMA user_version = 1")
+    conn.commit()
+
+    init_schema(conn)
+
+    rows = {
+        row["id"]: row["criteria_text"]
+        for row in conn.execute("SELECT id, criteria_text FROM tasks")
+    }
+    assert rows[1] == "OLD_CRITERIA"
+    assert rows[2] is None
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
+    conn.close()
+
+
 def test_latest_db_skips_migration_probing(tmp_path, monkeypatch):
     path = str(tmp_path / "latest.db")
     conn = _open(path)

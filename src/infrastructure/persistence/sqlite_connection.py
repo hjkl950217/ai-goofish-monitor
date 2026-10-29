@@ -195,6 +195,21 @@ def _migrate_tasks_criteria(conn: sqlite3.Connection) -> None:
     cols = [r[1] for r in conn.execute("PRAGMA table_info(tasks)").fetchall()]
     if "criteria_text" not in cols:
         conn.execute("ALTER TABLE tasks ADD COLUMN criteria_text TEXT")
+        # 老任务把共享文件里的判断标准搬进自己的记录，避免迁移后页面显示空白
+        for task_id, criteria_file in conn.execute(
+            "SELECT id, ai_prompt_criteria_file FROM tasks"
+        ).fetchall():
+            path = (criteria_file or "").strip()
+            if not path:
+                continue
+            try:
+                content = Path(path).read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if content.strip():
+                conn.execute(
+                    "UPDATE tasks SET criteria_text = ? WHERE id = ?", (content, task_id)
+                )
     conn.execute(
         "INSERT OR REPLACE INTO app_metadata(key, value) VALUES ('migration:tasks_criteria', 'done')"
     )
