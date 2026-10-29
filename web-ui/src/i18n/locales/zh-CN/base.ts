@@ -463,7 +463,7 @@ const zhCN = {
       title: '配置文件',
       description: '这里是容器内 data/config.jsonc 的原文，开关、地址与密钥都存在这里。',
       pathUnknown: '路径读取中',
-      placeholder: '{}',
+      placeholder: '在此编辑 config.jsonc',
       hint: '保存后立即重载服务配置。直接改磁盘文件需要重启容器才生效；密钥字段在文件里是 ENC[v1] 开头的密文。',
       reload: '重新读取',
       save: '保存并重载',

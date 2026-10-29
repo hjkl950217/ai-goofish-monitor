@@ -463,7 +463,7 @@ const enUS = {
       title: 'Config File',
       description: 'Raw content of data/config.jsonc inside the container. Switches, URLs and keys all live here.',
       pathUnknown: 'Reading path...',
-      placeholder: '{}',
+      placeholder: 'Edit config.jsonc here',
       hint: 'Saving reloads the running service. Editing the file on disk requires a container restart. Key fields are stored encrypted with the ENC[v1] prefix.',
       reload: 'Reload',
       save: 'Save and Reload',

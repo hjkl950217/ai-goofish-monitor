@@ -701,39 +701,37 @@ watch(selectedPrompt, async (value) => {
 
       <!-- Config File Tab -->
       <TabsContent value="config">
-        <Card>
-          <CardHeader>
-            <CardTitle>{{ t('settings.configFile.title') }}</CardTitle>
-            <CardDescription>{{ t('settings.configFile.description') }}</CardDescription>
-          </CardHeader>
-          <div class="space-y-3 p-6 pt-0">
-            <div
-              v-if="rawConfigError"
-              class="whitespace-pre-wrap rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-            >
-              {{ rawConfigError }}
-            </div>
-            <p class="font-mono text-xs text-gray-500">
-              {{ rawConfigPath || t('settings.configFile.pathUnknown') }}
-            </p>
-            <Textarea
-              v-model="rawConfig"
-              class="min-h-[420px] font-mono text-xs"
-              spellcheck="false"
-              :disabled="isRawConfigLoading"
-              :placeholder="t('settings.configFile.placeholder')"
-            />
-            <p class="text-xs text-gray-500">{{ t('settings.configFile.hint') }}</p>
+        <div class="app-surface space-y-3 p-6">
+          <div>
+            <h3 class="text-2xl font-semibold leading-none tracking-tight">{{ t('settings.configFile.title') }}</h3>
+            <p class="mt-1.5 text-sm text-muted-foreground">{{ t('settings.configFile.description') }}</p>
           </div>
-          <CardFooter class="flex gap-2">
+          <div
+            v-if="rawConfigError"
+            class="whitespace-pre-wrap rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+          >
+            {{ rawConfigError }}
+          </div>
+          <p class="font-mono text-xs text-gray-500">
+            {{ rawConfigPath || t('settings.configFile.pathUnknown') }}
+          </p>
+          <Textarea
+            v-model="rawConfig"
+            class="min-h-[420px] font-mono text-xs"
+            spellcheck="false"
+            :disabled="isRawConfigLoading"
+            :placeholder="t('settings.configFile.placeholder')"
+          />
+          <p class="text-xs text-gray-500">{{ t('settings.configFile.hint') }}</p>
+          <div class="flex gap-2">
             <Button variant="outline" :disabled="isRawConfigLoading" @click="loadRawConfig">
               {{ t('settings.configFile.reload') }}
             </Button>
             <Button :disabled="isRawConfigSaving || isRawConfigLoading" @click="handleSaveRawConfig">
               {{ isRawConfigSaving ? t('common.saving') : t('settings.configFile.save') }}
             </Button>
-          </CardFooter>
-        </Card>
+          </div>
+        </div>
       </TabsContent>
     </Tabs>
   </div>
