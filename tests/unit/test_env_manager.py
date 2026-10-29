@@ -1,38 +1,36 @@
-from pathlib import Path
-
-from src.infrastructure.config.env_manager import EnvManager, env_manager
+from src.infrastructure.config.store import ConfigStore, config_store
 
 
-def test_get_value_prefers_env_file_when_key_present(tmp_path, monkeypatch):
-    env_file = tmp_path / ".env"
-    env_file.write_text("WEBHOOK_URL=https://hooks.example.com/new\n", encoding="utf-8")
-    monkeypatch.setenv("WEBHOOK_URL", "https://hooks.example.com/old")
-
-    manager = EnvManager(str(env_file))
-
-    assert manager.get_value("WEBHOOK_URL") == "https://hooks.example.com/new"
+def test_global_config_store_uses_jsonc_file():
+    # 配置落在已挂载的 data/config.jsonc（测试环境里指向临时目录，文件名不变）
+    assert config_store.path.name == "config.jsonc"
 
 
-def test_get_value_falls_back_to_runtime_when_key_missing_from_env_file(tmp_path, monkeypatch):
-    env_file = tmp_path / ".env"
-    env_file.write_text("", encoding="utf-8")
+def test_apply_writes_to_config_file_and_reads_back(tmp_path):
+    store = ConfigStore(tmp_path / "config.jsonc", tmp_path / "config.key")
+    store.apply({"WEBHOOK_URL": "https://hooks.example.com/saved"})
+
+    assert "WEBHOOK_URL" in store.raw()
+    assert store.get("WEBHOOK_URL") == "https://hooks.example.com/saved"
+
+
+def test_get_value_falls_back_to_runtime_when_missing_from_file(tmp_path, monkeypatch):
     monkeypatch.setenv("WEBHOOK_URL", "https://hooks.example.com/runtime")
+    store = ConfigStore(tmp_path / "config.jsonc", tmp_path / "config.key")
+    store.load()
 
-    manager = EnvManager(str(env_file))
-
-    assert manager.get_value("WEBHOOK_URL") == "https://hooks.example.com/runtime"
-
-
-def test_global_env_manager_persists_to_data_env():
-    # 站内保存的配置必须落在已挂载的 data/.env，容器重建才不丢
-    assert env_manager.env_file == Path("data/.env")
+    assert store.get("WEBHOOK_URL") == "https://hooks.example.com/runtime"
 
 
-def test_update_values_writes_to_env_file_and_creates_parent_dirs(tmp_path, monkeypatch):
-    monkeypatch.delenv("WEBHOOK_URL", raising=False)
-    manager = EnvManager(str(tmp_path / "data" / ".env"))
+def test_file_value_wins_over_runtime_env(tmp_path, monkeypatch):
+    path = tmp_path / "config.jsonc"
+    path.write_text(
+        '{"notification": {"WEBHOOK_URL": "https://hooks.example.com/file"}}',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("WEBHOOK_URL", "https://hooks.example.com/env")
 
-    assert manager.update_values({"WEBHOOK_URL": "https://hooks.example.com/saved"}) is True
-    saved = (tmp_path / "data" / ".env").read_text(encoding="utf-8")
-    assert "WEBHOOK_URL=https://hooks.example.com/saved" in saved
-    assert manager.get_value("WEBHOOK_URL") == "https://hooks.example.com/saved"
+    store = ConfigStore(path, tmp_path / "config.key")
+    store.load()
+
+    assert store.get("WEBHOOK_URL") == "https://hooks.example.com/file"

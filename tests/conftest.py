@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -9,6 +10,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+
+# 测试不能写工作区的 data/config.jsonc，导入 src 之前先把配置路径指到临时目录
+_TEST_CONFIG_DIR = Path(tempfile.mkdtemp(prefix="agm-test-config-"))
+os.environ["AGM_CONFIG_FILE"] = str(_TEST_CONFIG_DIR / "config.jsonc")
+os.environ["AGM_CONFIG_KEY_FILE"] = str(_TEST_CONFIG_DIR / "config.key")
 
 # Add repository root to the path so package imports work consistently
 repo_root = Path(__file__).resolve().parents[1]
@@ -19,6 +25,17 @@ from src.api.routes import tasks
 from src.infrastructure.persistence.sqlite_task_repository import SqliteTaskRepository
 from src.services.task_service import TaskService
 from src.services.task_generation_service import TaskGenerationService
+
+
+@pytest.fixture(autouse=True)
+def _isolate_config_store():
+    """每个测试都从空的配置开始，避免上一个用例写入的值串到下一个。"""
+    from src.infrastructure.config.store import config_store
+
+    if config_store.path.exists():
+        config_store.path.unlink()
+    config_store.reset()
+    yield
 
 
 @pytest.fixture()

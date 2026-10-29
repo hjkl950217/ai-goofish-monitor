@@ -18,6 +18,8 @@ import { getModelCheckStatus, startModelCheck, cancelModelCheck } from '@/api/mo
 import type { ModelCheckStatus } from '@/api/modelCheck'
 import NotificationSettingsPanel from '@/components/settings/NotificationSettingsPanel.vue'
 import RotationSettingsPanel from '@/components/settings/RotationSettingsPanel.vue'
+import { getRawConfig, saveRawConfig } from '@/api/configFile'
+import { validateJsonc } from '@/lib/jsonc'
 const { t } = useI18n()
 
 function formatBytes(bytes?: number | null) {
@@ -66,7 +68,7 @@ const {
 
 const activeTab = ref('ai')
 const route = useRoute()
-const validTabs = new Set(['notifications', 'ai', 'rotation', 'status', 'prompts'])
+const validTabs = new Set(['notifications', 'ai', 'rotation', 'status', 'prompts', 'config'])
 
 const promptFiles = ref<string[]>([])
 const selectedPrompt = ref<string | null>(null)
@@ -74,6 +76,51 @@ const promptContent = ref('')
 const isPromptLoading = ref(false)
 const isPromptSaving = ref(false)
 const promptError = ref<string | null>(null)
+
+const rawConfig = ref('')
+const rawConfigPath = ref('')
+const rawConfigError = ref('')
+const isRawConfigLoading = ref(false)
+const isRawConfigSaving = ref(false)
+
+async function loadRawConfig() {
+  isRawConfigLoading.value = true
+  rawConfigError.value = ''
+  try {
+    const data = await getRawConfig()
+    rawConfig.value = data.content
+    rawConfigPath.value = data.path
+  } catch (e) {
+    rawConfigError.value = (e as Error).message
+  } finally {
+    isRawConfigLoading.value = false
+  }
+}
+
+async function handleSaveRawConfig() {
+  const message = validateJsonc(rawConfig.value)
+  if (message) {
+    rawConfigError.value = message
+    return
+  }
+  isRawConfigSaving.value = true
+  rawConfigError.value = ''
+  try {
+    await saveRawConfig(rawConfig.value)
+    notifySuccess(t('settings.configFile.saved'))
+    await loadRawConfig()
+  } catch (e) {
+    rawConfigError.value = (e as Error).message
+  } finally {
+    isRawConfigSaving.value = false
+  }
+}
+
+watch(activeTab, (tab) => {
+  if (tab === 'config' && !rawConfig.value && !isRawConfigLoading.value) {
+    void loadRawConfig()
+  }
+})
 
 function notifySuccess(title: string, description?: string) {
   toast({ title, description })
@@ -297,6 +344,7 @@ watch(selectedPrompt, async (value) => {
         <TabsTrigger class="shrink-0" value="notifications">{{ t('settings.tabs.notifications') }}</TabsTrigger>
         <TabsTrigger class="shrink-0" value="status">{{ t('settings.tabs.status') }}</TabsTrigger>
         <TabsTrigger class="shrink-0" value="prompts">{{ t('settings.tabs.prompts') }}</TabsTrigger>
+        <TabsTrigger class="shrink-0" value="config">{{ t('settings.tabs.configFile') }}</TabsTrigger>
       </TabsList>
 
       <!-- AI Tab -->
@@ -641,6 +689,43 @@ watch(selectedPrompt, async (value) => {
           <CardFooter>
             <Button :disabled="isPromptSaving || !selectedPrompt" @click="handleSavePrompt">
               {{ isPromptSaving ? t('common.saving') : t('settings.prompts.save') }}
+            </Button>
+          </CardFooter>
+        </Card>
+      </TabsContent>
+
+      <!-- Config File Tab -->
+      <TabsContent value="config">
+        <Card>
+          <CardHeader>
+            <CardTitle>{{ t('settings.configFile.title') }}</CardTitle>
+            <CardDescription>{{ t('settings.configFile.description') }}</CardDescription>
+          </CardHeader>
+          <CardContent class="space-y-3">
+            <div
+              v-if="rawConfigError"
+              class="whitespace-pre-wrap rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+            >
+              {{ rawConfigError }}
+            </div>
+            <p class="font-mono text-xs text-gray-500">
+              {{ rawConfigPath || t('settings.configFile.pathUnknown') }}
+            </p>
+            <Textarea
+              v-model="rawConfig"
+              class="min-h-[420px] font-mono text-xs"
+              spellcheck="false"
+              :disabled="isRawConfigLoading"
+              :placeholder="t('settings.configFile.placeholder')"
+            />
+            <p class="text-xs text-gray-500">{{ t('settings.configFile.hint') }}</p>
+          </CardContent>
+          <CardFooter class="flex gap-2">
+            <Button variant="outline" :disabled="isRawConfigLoading" @click="loadRawConfig">
+              {{ t('settings.configFile.reload') }}
+            </Button>
+            <Button :disabled="isRawConfigSaving || isRawConfigLoading" @click="handleSaveRawConfig">
+              {{ isRawConfigSaving ? t('common.saving') : t('settings.configFile.save') }}
             </Button>
           </CardFooter>
         </Card>

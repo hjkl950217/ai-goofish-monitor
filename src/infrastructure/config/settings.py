@@ -132,8 +132,10 @@ def reload_settings() -> None:
     global _settings_instance, settings, ai_settings, notification_settings, scraper_settings
     from dotenv import load_dotenv
     from src.infrastructure.config.env_manager import env_manager
+    from src.infrastructure.config.store import config_store
 
     load_dotenv(dotenv_path=env_manager.env_file, override=True)
+    config_store.load()
     _settings_instance = None
     settings = get_settings()
     ai_settings = AISettings()
@@ -141,11 +143,14 @@ def reload_settings() -> None:
     scraper_settings = ScraperSettings()
 
 
-# 站内保存的 data/.env 优先于进程环境变量，启动时先载入再创建配置实例
+# data/config.jsonc 优先级最高；首次启动时用当前环境生成一份
 from dotenv import load_dotenv
 from src.infrastructure.config.env_manager import env_manager
+from src.infrastructure.config.store import config_store
 
 load_dotenv(dotenv_path=env_manager.env_file, override=True)
+config_store.bootstrap(env_file=env_manager.env_file)
+config_store.load()
 
 # 导出便捷访问的配置实例
 settings = get_settings()

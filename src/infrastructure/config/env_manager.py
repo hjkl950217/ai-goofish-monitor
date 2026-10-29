@@ -1,61 +1,52 @@
 """
-环境变量管理器
-负责读取和更新 .env 文件，并在读取时回退到运行时环境变量
+配置读写入口（兼容层）。
 
-配置优先级（get_value）：本文件（站内保存，data/.env，已挂载目录，容器重建不丢）
-> 进程环境变量（compose environment / env_file 注入，以及启动时 load_dotenv 载入的部署 .env）
-> 代码默认值。
+真正的存储是 data/config.jsonc，由 config_store 负责读写与加密。
+env_file 只作为首次迁移的来源，不再写入。
+配置优先级：data/config.jsonc > 进程环境变量 > 代码默认值。
 """
-import os
-import re
 from typing import Dict, List, Optional
 from pathlib import Path
 
 from dotenv import dotenv_values
 
 
-_PLAIN_ENV_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9_./:-]+$")
-
-
 class EnvManager:
-    """环境变量管理器"""
+    """把旧的 env 接口转发到 config_store。
+
+    写操作只进 config_store；读操作先看 config_store，
+    再回退到 env_file（迁移期保留 data/.env 里的历史值）。
+    """
 
     def __init__(self, env_file: str = ".env"):
         self.env_file = Path(env_file)
-        self._ensure_env_file_exists()
 
-    def _ensure_env_file_exists(self):
-        """确保 .env 文件存在"""
-        if not self.env_file.exists():
-            self.env_file.parent.mkdir(parents=True, exist_ok=True)
-            self.env_file.touch()
-
-    def read_env(self) -> Dict[str, str]:
-        """读取所有环境变量"""
+    def _file_values(self) -> Dict[str, str]:
         if not self.env_file.exists():
             return {}
-
         loaded = dotenv_values(self.env_file, encoding="utf-8")
-        return {
-            key: value
-            for key, value in loaded.items()
-            if key and value is not None
-        }
+        return {key: value for key, value in loaded.items() if key and value is not None}
+
+    def read_env(self) -> Dict[str, str]:
+        from src.infrastructure.config.store import config_store
+
+        merged = {key: str(value) for key, value in config_store.plain_mapping().items()}
+        for key, value in self._file_values().items():
+            merged.setdefault(key, value)
+        return merged
 
     def get_value(self, key: str, default: Optional[str] = None) -> Optional[str]:
-        """获取单个环境变量的值，优先读取 .env，缺失时再回退到运行时环境变量"""
-        env_vars = self.read_env()
-        if key in env_vars:
-            return env_vars[key]
+        from src.infrastructure.config.store import config_store
 
-        runtime_value = os.getenv(key)
-        if runtime_value is not None:
-            return runtime_value
-
+        value = config_store.get(key)
+        if value is not None:
+            return value
+        file_value = self._file_values().get(key)
+        if file_value is not None:
+            return file_value
         return default
 
     def update_values(self, updates: Dict[str, str]) -> bool:
-        """批量更新环境变量"""
         return self.apply_changes(updates=updates)
 
     def apply_changes(
@@ -63,52 +54,24 @@ class EnvManager:
         updates: Dict[str, str],
         deletions: List[str] | None = None,
     ) -> bool:
-        """批量更新并删除环境变量"""
         try:
-            existing_vars = self.read_env()
-            existing_vars.update(updates)
+            from src.infrastructure.config.store import config_store
+
+            payload: Dict[str, str] = {key: value for key, value in updates.items()}
             for key in deletions or []:
-                existing_vars.pop(key, None)
-            return self._write_env(existing_vars)
+                payload[key] = ""
+            config_store.apply(payload)
+            return True
         except Exception as e:
-            print(f"更新环境变量失败: {e}")
+            print(f"更新配置失败: {e}")
             return False
 
     def set_value(self, key: str, value: str) -> bool:
-        """设置单个环境变量"""
         return self.update_values({key: value})
 
     def delete_keys(self, keys: List[str]) -> bool:
-        """删除指定的环境变量"""
-        try:
-            existing_vars = self.read_env()
-            for key in keys:
-                existing_vars.pop(key, None)
-            return self._write_env(existing_vars)
-        except Exception as e:
-            print(f"删除环境变量失败: {e}")
-            return False
-
-    def _write_env(self, env_vars: Dict[str, str]) -> bool:
-        """写入环境变量到文件"""
-        try:
-            with open(self.env_file, 'w', encoding='utf-8') as f:
-                for key, value in env_vars.items():
-                    f.write(f"{key}={self._serialize_value(value)}\n")
-            return True
-        except Exception as e:
-            print(f"写入 .env 文件失败: {e}")
-            return False
-
-    def _serialize_value(self, value: str) -> str:
-        text = str(value)
-        if text == "":
-            return ""
-        if _PLAIN_ENV_VALUE_PATTERN.fullmatch(text):
-            return text
-        escaped = text.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
-        return f'"{escaped}"'
+        return self.apply_changes(updates={}, deletions=keys)
 
 
-# 全局实例：站内保存的配置落到已挂载的 data/.env，容器重建后仍可读回
+# 首次启动时从这里读取旧配置，生成 data/config.jsonc
 env_manager = EnvManager("data/.env")

@@ -13,3 +13,4 @@ httpx[socks]==0.28.1
 Pillow==13.0.0
 pyzbar==0.1.9
 qrcode==8.2
+cryptography==50.0.2

@@ -100,12 +100,13 @@ def test_rotation_settings_include_account_rotation_fields(tmp_path, monkeypatch
     )
     assert update_response.status_code == 200
 
-    latest = env_file.read_text(encoding="utf-8")
-    assert "ACCOUNT_ROTATION_ENABLED=true" in latest
-    assert "ACCOUNT_ROTATION_MODE=on_failure" in latest
-    assert "ACCOUNT_ROTATION_RETRY_LIMIT=4" in latest
-    assert "ACCOUNT_BLACKLIST_TTL=900" in latest
-    assert "ACCOUNT_STATE_DIR=accounts" in latest
+    from src.infrastructure.config.store import config_store
+
+    assert str(config_store.get("ACCOUNT_ROTATION_ENABLED")).lower() == "true"
+    assert str(config_store.get("ACCOUNT_ROTATION_MODE")) == "on_failure"
+    assert str(config_store.get("ACCOUNT_ROTATION_RETRY_LIMIT")) == "4"
+    assert str(config_store.get("ACCOUNT_BLACKLIST_TTL")) == "900"
+    assert str(config_store.get("ACCOUNT_STATE_DIR")) == "accounts"
 
 
 def test_notification_settings_redact_sensitive_values_and_expose_flags(tmp_path, monkeypatch):

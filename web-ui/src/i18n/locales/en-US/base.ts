@@ -367,6 +367,7 @@ const enUS = {
       notifications: 'Notifications',
       status: 'System Status',
       prompts: 'Built-in Prompts',
+      configFile: 'Config File',
     },
     notifications: { saved: 'Notification settings saved.', saveFailed: 'Failed to save notification settings.', testFailed: 'Notification test failed.' },
     ai: {
@@ -443,8 +444,8 @@ const enUS = {
       failed: 'Failed',
     },
     prompts: {
-      title: 'Prompt Management',
-      description: 'Edit prompt files under the prompts directory.',
+      title: 'Built-in Prompts',
+      description: 'Only bundled templates are listed. Per-task criteria live in the task\'s Requirement Prompt tab.',
       selectFile: 'Select Prompt File',
       placeholder: 'Select a prompt file...',
       none: 'No prompt files found.',
@@ -456,6 +457,16 @@ const enUS = {
       saveSuccess: 'Prompt saved successfully.',
       saveFailed: 'Failed to save prompt.',
       promptContentFailed: 'Failed to load prompt content.',
+    },
+    configFile: {
+      title: 'Config File',
+      description: 'Raw content of data/config.jsonc inside the container. Switches, URLs and keys all live here.',
+      pathUnknown: 'Reading path...',
+      placeholder: '{}',
+      hint: 'Saving reloads the running service. Editing the file on disk requires a container restart. Key fields are stored encrypted with the ENC[v1] prefix.',
+      reload: 'Reload',
+      save: 'Save and Reload',
+      saved: 'Config saved and reloaded',
     },
   },
 }

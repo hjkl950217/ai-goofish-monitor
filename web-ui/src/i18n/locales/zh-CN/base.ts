@@ -367,6 +367,7 @@ const zhCN = {
       notifications: '通知推送',
       status: '系统状态',
       prompts: '内置提示词',
+      configFile: '配置文件',
     },
     notifications: { saved: '通知设置已保存', saveFailed: '通知设置保存失败', testFailed: '通知测试失败' },
     ai: {
@@ -443,8 +444,8 @@ const zhCN = {
       failed: '失败',
     },
     prompts: {
-      title: 'Prompt 管理',
-      description: '在线编辑 prompts 目录下的 Prompt 文件。',
+      title: '内置提示词',
+      description: '只列镜像自带的模板。任务自己的判断标准在任务的「需求提示词」里改。',
       selectFile: '选择 Prompt 文件',
       placeholder: '请选择一个 Prompt 文件...',
       none: '没有找到 Prompt 文件。',
@@ -456,6 +457,16 @@ const zhCN = {
       saveSuccess: 'Prompt 保存成功',
       saveFailed: 'Prompt 保存失败',
       promptContentFailed: '加载 Prompt 内容失败',
+    },
+    configFile: {
+      title: '配置文件',
+      description: '这里是容器内 data/config.jsonc 的原文，开关、地址与密钥都存在这里。',
+      pathUnknown: '路径读取中',
+      placeholder: '{}',
+      hint: '保存后立即重载服务配置。直接改磁盘文件需要重启容器才生效；密钥字段在文件里是 ENC[v1] 开头的密文。',
+      reload: '重新读取',
+      save: '保存并重载',
+      saved: '配置已保存并重载',
     },
   },
 }

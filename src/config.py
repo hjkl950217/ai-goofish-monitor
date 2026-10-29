@@ -6,11 +6,15 @@ from openai import AsyncOpenAI
 
 from src.infrastructure.external.ai_client import _sanitize_no_proxy_env
 from src.infrastructure.config.env_manager import env_manager
+from src.infrastructure.config.store import config_store
 
 # --- AI & Notification Configuration ---
 load_dotenv()
 # 站内保存的 data/.env 优先于部署 .env 与容器环境变量
 load_dotenv(dotenv_path=env_manager.env_file, override=True)
+# data/config.jsonc 优先级最高；首次启动时用当前环境生成一份
+config_store.bootstrap(env_file=env_manager.env_file)
+config_store.load()
 
 # --- File Paths & Directories ---
 STATE_FILE = "xianyu_state.json"
