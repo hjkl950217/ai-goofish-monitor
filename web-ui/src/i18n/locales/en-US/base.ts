@@ -458,6 +458,12 @@ const enUS = {
       saveSuccess: 'Prompt saved successfully.',
       saveFailed: 'Failed to save prompt.',
       promptContentFailed: 'Failed to load prompt content.',
+      files: {
+        base: 'Base analysis template (shared by all crawls)',
+        example: 'Example criteria (reference when writing requirements)',
+        macbook: 'Generation example: MacBook criteria',
+        modelCheck: 'Model check prompt (identifies the exact model)',
+      },
     },
     configFile: {
       title: 'Config File',

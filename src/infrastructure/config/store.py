@@ -8,7 +8,9 @@
 """
 from __future__ import annotations
 
+import json
 import os
+import re
 import threading
 from pathlib import Path
 from typing import Any
@@ -104,6 +106,89 @@ CONFIG_GROUPS: dict[str, tuple[str, ...]] = {
 }
 
 KNOWN_KEYS: tuple[str, ...] = tuple(key for keys in CONFIG_GROUPS.values() for key in keys)
+
+GROUP_NOTES: dict[str, str] = {
+    "ai": "AI 模型（OPENAI_API_KEY 必填）",
+    "model_check": "型号判断模型，留空复用 ai 组的地址与密钥",
+    "web": "Web 服务与登录",
+    "crawler": "抓取行为",
+    "notification": "通知渠道，留空的渠道不启用",
+    "account_rotation": "账号轮换（任务失败时换账号）",
+    "proxy_rotation": "代理轮换",
+    "failure_guard": "任务失败保护（连续失败自动暂停）",
+    "paths": "数据文件路径",
+    "logs_and_trace": "日志与调试产物",
+    "other": "其他",
+}
+
+# 每个键一行说明：是什么 + 取值格式
+KEY_NOTES: dict[str, str] = {
+    "OPENAI_API_KEY": "接口密钥，字符串；保存时自动加密",
+    "OPENAI_BASE_URL": "OpenAI 兼容接口地址，如 https://api.openai.com/v1",
+    "OPENAI_MODEL_NAME": "模型名，如 gpt-4o-mini",
+    "PROXY_URL": "访问 AI 用的代理，如 http://127.0.0.1:7890；留空直连",
+    "AI_DEBUG_MODE": "记录 AI 请求日志，true / false",
+    "ENABLE_THINKING": "让模型输出思考过程，true / false",
+    "ENABLE_RESPONSE_FORMAT": "要求模型按 JSON 结构返回，true / false",
+    "SKIP_AI_ANALYSIS": "只抓取不分析，true / false",
+    "AI_ANALYSIS_CONCURRENCY": "同时分析的商品数，整数",
+    "MODEL_CHECK_ENABLED": "用 AI 校正商品型号，true / false",
+    "MODEL_CHECK_BASE_URL": "型号判断专用接口，留空复用上面的地址",
+    "MODEL_CHECK_API_KEY": "型号判断专用密钥，自动加密；留空复用上面的密钥",
+    "MODEL_CHECK_MODEL_NAME": "型号判断专用模型，留空复用上面的模型",
+    "MODEL_CHECK_PROXY_URL": "型号判断专用代理，留空复用上面的代理",
+    "MODEL_CHECK_PREFILTER_REGEX": "只判断标题能匹配此正则的商品，正则字符串",
+    "SERVER_PORT": "后端监听端口，整数",
+    "WEB_USERNAME": "登录用户名",
+    "WEB_PASSWORD": "登录密码，自动加密",
+    "RUN_HEADLESS": "无头运行浏览器，true / false",
+    "LOGIN_IS_EDGE": "用本机 Edge 登录而不是内置浏览器，true / false",
+    "KEEP_TASK_IMAGES": "保留抓取到的图片，true / false",
+    "REFRESH_TRACKED_ITEMS": "定时刷新已收藏商品，true / false",
+    "PCURL_TO_MOBILE": "把 PC 链接转成移动端链接，true / false",
+    "IMAGE_DOWNLOAD_CONCURRENCY": "图片下载并发数，整数",
+    "SELLER_PROFILE_CACHE_TTL": "卖家资料缓存秒数，整数",
+    "NTFY_TOPIC_URL": "ntfy 推送地址（完整 URL），留空不启用",
+    "PUSHPLUS_TOKEN": "PushPlus token",
+    "PUSHPLUS_TOPIC": "PushPlus 群组编码，可选",
+    "GOTIFY_URL": "Gotify 服务地址",
+    "GOTIFY_TOKEN": "Gotify 应用 token，自动加密",
+    "BARK_URL": "Bark 推送地址（含设备 key），自动加密",
+    "WX_BOT_URL": "企业微信机器人 Webhook，自动加密",
+    "TELEGRAM_BOT_TOKEN": "Telegram 机器人 token，自动加密",
+    "TELEGRAM_CHAT_ID": "Telegram 接收会话 ID",
+    "TELEGRAM_API_BASE_URL": "Telegram 接口地址，自建反向代理时填",
+    "WEBHOOK_URL": "通用 Webhook 地址，自动加密",
+    "WEBHOOK_METHOD": "请求方法，如 POST",
+    "WEBHOOK_CONTENT_TYPE": "请求体类型，如 application/json",
+    "WEBHOOK_HEADERS": "额外请求头，JSON 对象字符串",
+    "WEBHOOK_QUERY_PARAMETERS": "追加到 URL 的查询参数，JSON 对象字符串",
+    "WEBHOOK_BODY": "自定义请求体模板，留空用默认格式",
+    "NOTIFICATION_DISABLED_CHANNELS": "不发送的渠道名，字符串数组，如 [\"ntfy\"]",
+    "ACCOUNT_ROTATION_ENABLED": "任务失败时自动换账号，true / false",
+    "ACCOUNT_ROTATION_MODE": "换账号的粒度，per_task / per_item",
+    "ACCOUNT_ROTATION_RETRY_LIMIT": "单个任务最多重试次数，整数",
+    "ACCOUNT_ROTATION_BLACKLIST_TTL": "轮换黑名单保留秒数，整数",
+    "ACCOUNT_BLACKLIST_TTL": "账号黑名单保留秒数，整数",
+    "PROXY_ROTATION_ENABLED": "代理失败时自动换代理，true / false",
+    "PROXY_ROTATION_MODE": "换代理的粒度，per_task / per_item",
+    "PROXY_ROTATION_RETRY_LIMIT": "最多重试次数，整数",
+    "PROXY_ROTATION_BLACKLIST_TTL": "轮换黑名单保留秒数，整数",
+    "PROXY_BLACKLIST_TTL": "代理黑名单保留秒数，整数",
+    "PROXY_POOL": "代理池，一行一个或逗号分隔",
+    "TASK_FAILURE_THRESHOLD": "连续失败多少次暂停任务，整数",
+    "TASK_FAILURE_PAUSE_SECONDS": "暂停时长秒数，整数",
+    "TASK_FAILURE_GUARD_PATH": "失败计数文件，相对工作目录的路径",
+    "TASK_FAILURE_TZ": "失败统计用的时区，如 Asia/Shanghai",
+    "ACCOUNT_STATE_DIR": "登录态目录，默认 data/accounts",
+    "APP_DATABASE_FILE": "SQLite 数据库文件，默认 data/app.sqlite3",
+    "TASK_LOG_RETENTION_DAYS": "任务日志保留天数，整数",
+    "AI_LOG_RETENTION_DAYS": "AI 请求日志保留天数，整数",
+    "AGM_BROWSER_TRACE": "录制浏览器 trace，true / false",
+    "AGM_TRACE_DIR": "trace 存放目录",
+    "AGM_TRACE_MAX_MB": "trace 目录体积上限 MB，整数",
+    "AGM_DEBUG_CAPTURE": "保存调试截图，true / false",
+}
 
 
 def _to_env(value: Any) -> str:
@@ -202,7 +287,7 @@ class ConfigStore:
     def apply(self, updates: dict[str, Any]) -> None:
         """按扁平键写回文件并重载。
 
-        会重排文件（手写注释不保留）；需要保留注释时用 save_raw 直接改原文。
+        会重排文件并重写说明注释（手写注释不保留）；需要保留手写内容时用 save_raw 直接改原文。
         """
         with self._lock:
             data = self._read_file()
@@ -244,6 +329,7 @@ class ConfigStore:
     def bootstrap(self, env_file: Path | None = None) -> bool:
         """文件不存在时，用 data/.env 与当前环境变量生成一份。返回是否新建。"""
         if self.path.exists():
+            self._ensure_comments()
             return False
         data: dict[str, dict[str, Any]] = {}
         for key in KNOWN_KEYS:
@@ -277,8 +363,48 @@ class ConfigStore:
     def _write_file(self, data: dict[str, Any]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix(self.path.suffix + ".tmp")
-        tmp.write_text(jsonc.dumps(_ordered(data)), encoding="utf-8")
+        tmp.write_text(_render(data), encoding="utf-8")
         os.replace(tmp, self.path)
+
+    def _ensure_comments(self) -> None:
+        """老文件没有注释时补一遍说明，值不动。"""
+        try:
+            text = self.path.read_text(encoding="utf-8")
+        except OSError:
+            return
+        if re.search(r"^\s*//", text, re.MULTILINE):
+            return
+        data = self._read_file()
+        if data:
+            self._write_file(data)
+
+
+def _render(data: dict[str, Any]) -> str:
+    """输出带注释的 JSONC；注释只来自 GROUP_NOTES / KEY_NOTES，手写注释会被重写掉。"""
+    ordered = _ordered(data)
+    lines = [
+        "{",
+        "  // 配置保存后由 Web 页面自动重载；直接改这个文件需要重启容器才生效",
+        "  // 以 ENC[v1]: 开头的值表示已加密，不要手改；留空的键回落到环境变量与代码默认值",
+    ]
+    groups = list(ordered.items())
+    for gi, (group, bucket) in enumerate(groups):
+        tail = "," if gi < len(groups) - 1 else ""
+        lines.append(f"  // {GROUP_NOTES.get(group, group)}")
+        if not isinstance(bucket, dict):
+            lines.append(f'  "{group}": {json.dumps(bucket, ensure_ascii=False)}{tail}')
+            continue
+        lines.append(f'  "{group}": {{')
+        items = list(bucket.items())
+        for ki, (key, value) in enumerate(items):
+            note = KEY_NOTES.get(key)
+            if note:
+                lines.append(f"    // {key}：{note}")
+            comma = "," if ki < len(items) - 1 else ""
+            lines.append(f'    "{key}": {json.dumps(value, ensure_ascii=False)}{comma}')
+        lines.append("  }" + tail)
+    lines.append("}")
+    return "\n".join(lines) + "\n"
 
 
 def _group_of(key: str) -> str:

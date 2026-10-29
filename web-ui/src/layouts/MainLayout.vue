@@ -43,8 +43,8 @@ const { t } = useI18n()
 
     <div class="flex flex-grow relative z-10">
       <!-- Sidebar -->
-      <aside class="hidden md:block w-fit min-w-[184px] max-w-[232px] flex-shrink-0 border-r border-slate-200/60 bg-white/40 backdrop-blur-sm">
-        <TheSidebar class="sticky top-16 h-[calc(100vh-4rem)] p-4" />
+      <aside class="hidden md:block w-fit min-w-[168px] max-w-[208px] flex-shrink-0 border-r border-slate-200/60 bg-white/40 backdrop-blur-sm">
+        <TheSidebar class="sticky top-16 h-[calc(100vh-4rem)] p-3" />
       </aside>
 
       <!-- Main Content Area -->

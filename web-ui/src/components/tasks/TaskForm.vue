@@ -398,9 +398,9 @@ function handleSubmit() {
             <Label for="cron">{{ t('tasks.form.schedule') }}</Label>
             <div class="space-y-2">
               <Tabs v-model="cronMode" class="w-full">
-                <TabsList class="grid w-full grid-cols-2">
-                  <TabsTrigger value="preset">{{ t('tasks.form.cronPresetTab') }}</TabsTrigger>
-                  <TabsTrigger value="custom">{{ t('tasks.form.cronCustomTab') }}</TabsTrigger>
+                <TabsList class="grid h-8 w-full grid-cols-2">
+                  <TabsTrigger value="preset" class="py-1 text-xs">{{ t('tasks.form.cronPresetTab') }}</TabsTrigger>
+                  <TabsTrigger value="custom" class="py-1 text-xs">{{ t('tasks.form.cronCustomTab') }}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="preset">
                   <Select v-model="presetCronValue">
@@ -421,10 +421,10 @@ function handleSubmit() {
                     :placeholder="t('tasks.form.cronCustomPlaceholder')"
                     @blur="validateField('cron')"
                   />
-                  <p class="text-xs text-slate-500 mt-1">
+                  <p class="text-xs text-muted-foreground mt-1">
                     {{ t('tasks.form.cronCustomHintLine1') }}
                   </p>
-                  <p class="text-xs text-slate-500">
+                  <p class="text-xs text-muted-foreground">
                     {{ t('tasks.form.cronCustomHintLine2') }}
                   </p>
                 </TabsContent>
@@ -448,7 +448,7 @@ function handleSubmit() {
                   {{ option.label }}
                 </option>
               </select>
-              <p class="text-xs text-slate-500">
+              <p class="text-xs text-muted-foreground">
                 {{ accountStrategyOptions.find((option) => option.value === accountStrategy)?.description }}
               </p>
             </div>
@@ -470,18 +470,18 @@ function handleSubmit() {
 
           <label
             v-if="form.decision_mode === 'ai'"
-            class="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-white/60 px-3 py-2.5"
+            class="flex items-center justify-between gap-3 rounded-lg border border-input bg-background px-3 py-2"
             :title="t('tasks.form.analyzeImagesHint')"
           >
-            <span class="text-sm font-medium text-slate-700">{{ t('tasks.form.analyzeImages') }}</span>
+            <span class="text-sm font-medium">{{ t('tasks.form.analyzeImages') }}</span>
             <Switch v-model="form.analyze_images" />
           </label>
-          <label class="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-white/60 px-3 py-2.5">
-            <span class="text-sm font-medium text-slate-700">{{ t('tasks.form.personalOnly') }}</span>
+          <label class="flex items-center justify-between gap-3 rounded-lg border border-input bg-background px-3 py-2">
+            <span class="text-sm font-medium">{{ t('tasks.form.personalOnly') }}</span>
             <Switch v-model="form.personal_only" />
           </label>
-          <label class="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-white/60 px-3 py-2.5">
-            <span class="text-sm font-medium text-slate-700">{{ t('tasks.form.freeShipping') }}</span>
+          <label class="flex items-center justify-between gap-3 rounded-lg border border-input bg-background px-3 py-2">
+            <span class="text-sm font-medium">{{ t('tasks.form.freeShipping') }}</span>
             <Switch v-model="form.free_shipping" />
           </label>
 
@@ -506,15 +506,18 @@ function handleSubmit() {
             <Label>{{ t('tasks.form.region') }}</Label>
             <div class="space-y-1">
               <TaskRegionSelector v-model="form.region" />
-              <p class="text-xs text-slate-500">{{ t('tasks.form.regionHint') }}</p>
+              <p class="text-xs text-muted-foreground">{{ t('tasks.form.regionHint') }}</p>
             </div>
           </div>
         </div>
       </TabsContent>
 
-      <TabsContent value="prompt" class="mt-4 flex min-h-0 flex-1 flex-col">
+      <TabsContent value="prompt" class="mt-4 flex min-h-0 flex-1 flex-col gap-4">
         <template v-if="form.decision_mode === 'keyword'">
-          <p class="mb-2 text-xs text-slate-500">{{ t('tasks.form.keywordRulesHint') }}</p>
+          <div class="flex items-baseline justify-between gap-3">
+            <span class="text-sm font-medium text-foreground">{{ t('tasks.form.keywordRules') }}</span>
+            <span class="text-xs text-muted-foreground">{{ t('tasks.form.keywordRulesHint') }}</span>
+          </div>
           <Textarea
             v-model="keywordRulesInput"
             class="min-h-[200px] flex-1"
@@ -522,24 +525,31 @@ function handleSubmit() {
           />
         </template>
         <template v-else>
-          <p class="mb-2 text-xs text-slate-500">{{ t('tasks.form.promptScopeHint') }}</p>
-          <Textarea
-            id="description"
-            v-model="form.description"
-            class="min-h-[140px]"
-            :placeholder="t('tasks.form.descriptionPlaceholder')"
-          />
-          <p class="mt-1 text-xs text-slate-500">{{ t('tasks.form.descriptionHint') }}</p>
+          <section class="flex min-h-0 flex-1 flex-col gap-2">
+            <div class="flex items-baseline justify-between gap-3">
+              <span class="text-sm font-medium text-foreground">{{ t('tasks.form.description') }}</span>
+              <span class="text-xs text-muted-foreground">{{ t('tasks.form.promptScopeHint') }}</span>
+            </div>
+            <Textarea
+              id="description"
+              v-model="form.description"
+              class="min-h-[140px] flex-1"
+              :placeholder="t('tasks.form.descriptionPlaceholder')"
+            />
+            <p class="text-xs text-muted-foreground">{{ t('tasks.form.descriptionHint') }}</p>
+          </section>
 
-          <div class="mt-3 flex items-baseline justify-between gap-2">
-            <span class="text-sm font-medium text-slate-700">{{ t('tasks.form.criteria') }}</span>
-            <span class="text-xs text-slate-400">{{ t('tasks.form.criteriaHint') }}</span>
-          </div>
-          <Textarea
-            v-model="form.criteria_text"
-            class="mt-1 min-h-[200px] flex-1"
-            :placeholder="t('tasks.form.criteriaPlaceholder')"
-          />
+          <section class="flex min-h-0 flex-1 flex-col gap-2">
+            <div class="flex items-baseline justify-between gap-3">
+              <span class="text-sm font-medium text-foreground">{{ t('tasks.form.criteria') }}</span>
+              <span class="text-xs text-muted-foreground">{{ t('tasks.form.criteriaHint') }}</span>
+            </div>
+            <Textarea
+              v-model="form.criteria_text"
+              class="min-h-[200px] flex-1"
+              :placeholder="t('tasks.form.criteriaPlaceholder')"
+            />
+          </section>
         </template>
       </TabsContent>
     </Tabs>

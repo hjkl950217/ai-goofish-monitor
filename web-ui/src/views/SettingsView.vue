@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSettings } from '@/composables/useSettings'
@@ -77,6 +77,14 @@ const promptContent = ref('')
 const isPromptLoading = ref(false)
 const isPromptSaving = ref(false)
 const promptError = ref<string | null>(null)
+
+// 内置模板用中文名显示，文件名仍是真实文件名
+const promptLabels = computed<Record<string, string>>(() => ({
+  'base_prompt.txt': t('settings.prompts.files.base'),
+  'example_criteria.txt': t('settings.prompts.files.example'),
+  'macbook_criteria.txt': t('settings.prompts.files.macbook'),
+  'model_check_prompt.txt': t('settings.prompts.files.modelCheck'),
+}))
 
 const rawConfig = ref('')
 const rawConfigPath = ref('')
@@ -672,7 +680,7 @@ watch(selectedPrompt, async (value) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem v-for="file in promptFiles" :key="file" :value="file">
-                    {{ file }}
+                    {{ promptLabels[file] || file }}
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -685,7 +693,7 @@ watch(selectedPrompt, async (value) => {
               <Label>{{ t('settings.prompts.content') }}</Label>
               <Textarea
                 v-model="promptContent"
-                class="min-h-[240px]"
+                class="min-h-[60vh]"
                 :disabled="!selectedPrompt || isPromptLoading"
                 :placeholder="t('settings.prompts.contentPlaceholder')"
               />

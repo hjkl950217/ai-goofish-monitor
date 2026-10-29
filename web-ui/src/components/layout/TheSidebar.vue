@@ -11,13 +11,11 @@ import {
   SlidersHorizontal,
   ChevronRight
 } from 'lucide-vue-next'
-import { useWebSocket } from '@/composables/useWebSocket'
 import { useI18n } from 'vue-i18n'
 
 const emit = defineEmits<{
   (event: 'navigate'): void
 }>()
-const { isConnected } = useWebSocket()
 const { t } = useI18n()
 
 const navItems = computed(() => [
@@ -29,15 +27,6 @@ const navItems = computed(() => [
   { to: '/ops', label: t('sidebar.ops'), icon: SlidersHorizontal },
   { to: '/settings', label: t('sidebar.settings'), icon: Settings2 },
 ])
-
-const connectionLabel = computed(() => (
-  isConnected.value ? t('sidebar.backendConnected') : t('sidebar.backendConnecting')
-))
-const connectionTone = computed(() =>
-  isConnected.value
-    ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
-    : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.45)]'
-)
 </script>
 
 <template>
@@ -47,7 +36,7 @@ const connectionTone = computed(() =>
       :key="item.to"
       :to="item.to"
       v-slot="{ isActive }"
-      class="group relative flex items-center px-4 py-3 rounded-xl transition-all duration-200 overflow-hidden"
+      class="group relative flex items-center px-3 py-2.5 rounded-xl transition-all duration-200 overflow-hidden"
       @click="emit('navigate')"
     >
       <!-- Active Background Effect -->
@@ -63,32 +52,21 @@ const connectionTone = computed(() =>
       <div class="relative z-10 flex items-center w-full">
         <component
           :is="item.icon"
-          class="w-5 h-5 mr-3 shrink-0 transition-colors"
+          class="w-5 h-5 mr-2.5 shrink-0 transition-colors"
           :class="isActive ? 'text-primary' : 'text-slate-400 group-hover:text-slate-600'"
         />
         <span
-          class="text-sm font-bold leading-snug transition-colors flex-grow max-w-[120px] break-words"
+          class="text-sm font-bold leading-snug transition-colors max-w-[112px] break-words"
           :class="isActive ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-700'"
         >
           {{ item.label }}
         </span>
         <ChevronRight
-          class="w-4 h-4 shrink-0 text-primary transition-opacity"
+          class="ml-1.5 w-4 h-4 shrink-0 text-primary transition-opacity"
           :class="isActive ? 'opacity-100' : 'opacity-0'"
         />
       </div>
     </RouterLink>
-
-    <!-- Support Section -->
-    <div class="mt-12 px-4">
-      <div class="rounded-2xl p-4 bg-slate-50/50 border border-slate-100 border-dashed">
-         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{{ t('sidebar.systemStatus') }}</p>
-         <div class="flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full" :class="connectionTone"></div>
-            <span class="text-xs font-bold text-slate-600">{{ connectionLabel }}</span>
-         </div>
-      </div>
-    </div>
   </nav>
 </template>
 

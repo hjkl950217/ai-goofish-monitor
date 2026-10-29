@@ -13,12 +13,23 @@ import {
 } from 'lucide-vue-next'
 import Badge from '@/components/ui/badge/Badge.vue'
 import { useMobileNav } from '@/composables/useMobileNav'
+import { useWebSocket } from '@/composables/useWebSocket'
 import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
 const route = useRoute()
 const { toggleMobileNav } = useMobileNav()
 const { t } = useI18n()
+
+const { isConnected } = useWebSocket()
+const connectionLabel = computed(() => (
+  isConnected.value ? t('sidebar.backendConnected') : t('sidebar.backendConnecting')
+))
+const connectionTone = computed(() =>
+  isConnected.value
+    ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+    : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.45)]'
+)
 
 const isDashboard = computed(() => route.name === 'Dashboard')
 
@@ -38,6 +49,7 @@ function goPrompts() {
 <template>
   <header class="flex items-center justify-between px-6 h-16 bg-white/60 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-[100]">
     <!-- Brand Logo -->
+    <div class="flex items-center gap-3">
     <RouterLink
       to="/dashboard"
       class="flex items-center gap-2 group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -53,6 +65,11 @@ function goPrompts() {
         PRO
       </Badge>
     </RouterLink>
+    <div class="hidden items-center gap-1.5 sm:flex" :title="connectionLabel">
+      <span class="h-2 w-2 rounded-full" :class="connectionTone"></span>
+      <span class="text-xs font-medium text-slate-500">{{ connectionLabel }}</span>
+    </div>
+    </div>
 
     <!-- Search & Navigation -->
     <div v-if="isDashboard" class="hidden md:flex flex-grow max-w-md mx-8">

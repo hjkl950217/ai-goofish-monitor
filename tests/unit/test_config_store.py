@@ -1,5 +1,4 @@
 """JSONC 解析、密钥加解密、配置文件读写。"""
-import json
 import os
 
 import pytest
@@ -83,8 +82,32 @@ def test_apply_encrypts_sensitive_values(tmp_path):
     assert "sk-test-123456" not in raw
     assert secret_box.PREFIX in raw
 
-    written = json.loads(raw)["ai"]["OPENAI_API_KEY"]
+    written = jsonc.loads(raw)["ai"]["OPENAI_API_KEY"]
     assert secret_box.decrypt(written, tmp_path / "config.key") == "sk-test-123456"
+
+
+def test_apply_writes_key_and_group_comments(tmp_path):
+    store = _store(tmp_path)
+    store.apply({"OPENAI_MODEL_NAME": "mimo"})
+
+    raw = store.raw()
+    assert "// AI 模型" in raw
+    assert "// OPENAI_MODEL_NAME：" in raw
+    assert jsonc.loads(raw)["ai"]["OPENAI_MODEL_NAME"] == "mimo"
+
+
+def test_bootstrap_annotates_existing_file_without_comments(tmp_path):
+    path = tmp_path / "config.jsonc"
+    path.write_text('{"ai": {"OPENAI_MODEL_NAME": "mimo"}}', encoding="utf-8")
+
+    store = ConfigStore(path, tmp_path / "config.key")
+    assert store.bootstrap() is False
+    assert "// OPENAI_MODEL_NAME：" in store.raw()
+    assert jsonc.loads(store.raw())["ai"]["OPENAI_MODEL_NAME"] == "mimo"
+
+    # 再跑一次不重复插注释
+    store.bootstrap()
+    assert store.raw().count("// OPENAI_MODEL_NAME：") == 1
 
 
 def test_apply_ignores_unknown_keys(tmp_path):
