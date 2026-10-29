@@ -94,14 +94,22 @@ export function validateJsonc(text: string): string {
 type JsoncToken = {
   kind: 'open' | 'close' | 'comma' | 'colon' | 'string' | 'literal' | 'lineComment' | 'blockComment'
   text: string
+  /** 前面出现过换行，用于判断行尾注释是否跟随上一行 */
+  nlBefore: boolean
 }
 
 function tokenizeJsonc(text: string): JsoncToken[] {
   const tokens: JsoncToken[] = []
   let i = 0
+  let nlBefore = false
+  const push = (kind: JsoncToken['kind'], value: string) => {
+    tokens.push({ kind, text: value, nlBefore })
+    nlBefore = false
+  }
   while (i < text.length) {
     const ch = text[i]
     if (ch === ' ' || ch === '\t' || ch === '\r' || ch === '\n' || ch === '﻿') {
+      if (ch === '\n' || ch === '\r') nlBefore = true
       i += 1
       continue
     }
@@ -112,32 +120,32 @@ function tokenizeJsonc(text: string): JsoncToken[] {
         if (text[j] === '"') { j += 1; break }
         j += 1
       }
-      tokens.push({ kind: 'string', text: text.slice(i, j) })
+      push('string', text.slice(i, j))
       i = j
       continue
     }
     if (ch === '/' && text[i + 1] === '/') {
       let j = text.indexOf('\n', i)
       if (j < 0) j = text.length
-      tokens.push({ kind: 'lineComment', text: text.slice(i, j).trimEnd() })
+      push('lineComment', text.slice(i, j).trimEnd())
       i = j
       continue
     }
     if (ch === '/' && text[i + 1] === '*') {
       const end = text.indexOf('*/', i + 2)
       const j = end < 0 ? text.length : end + 2
-      tokens.push({ kind: 'blockComment', text: text.slice(i, j) })
+      push('blockComment', text.slice(i, j))
       i = j
       continue
     }
-    if (ch === '{' || ch === '[') { tokens.push({ kind: 'open', text: ch }); i += 1; continue }
-    if (ch === '}' || ch === ']') { tokens.push({ kind: 'close', text: ch }); i += 1; continue }
-    if (ch === ',') { tokens.push({ kind: 'comma', text: ch }); i += 1; continue }
-    if (ch === ':') { tokens.push({ kind: 'colon', text: ch }); i += 1; continue }
+    if (ch === '{' || ch === '[') { push('open', ch); i += 1; continue }
+    if (ch === '}' || ch === ']') { push('close', ch); i += 1; continue }
+    if (ch === ',') { push('comma', ch); i += 1; continue }
+    if (ch === ':') { push('colon', ch); i += 1; continue }
     let j = i
     while (j < text.length && !' \t\r\n{}[],:"/'.includes(text[j] ?? '')) j += 1
     if (j === i) j += 1
-    tokens.push({ kind: 'literal', text: text.slice(i, j) })
+    push('literal', text.slice(i, j))
     i = j
   }
   return tokens
@@ -227,7 +235,11 @@ export function formatJsonc(text: string): string {
     }
     if (token.kind === 'comma') {
       line += ','
-      newline()
+      // 同一行后面的注释跟着这一行走，不要另起一行
+      const next = tokens[i + 1]
+      const trailingComment = next && !next.nlBefore
+        && (next.kind === 'lineComment' || next.kind === 'blockComment')
+      if (!trailingComment) newline()
       i += 1
       continue
     }
