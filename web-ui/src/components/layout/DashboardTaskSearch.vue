@@ -219,7 +219,7 @@ onBeforeUnmount(() => {
             v-for="(task, index) in visibleTasks"
             :key="task.id"
             class="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors"
-            :class="index === highlightedIndex ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 text-slate-800'"
+            :class="index === highlightedIndex ? 'bg-primary/10 text-slate-900' : 'hover:bg-slate-50 text-slate-800'"
             @mouseenter="highlightedIndex = index"
             @click="selectTask(task)"
           >
@@ -233,21 +233,21 @@ onBeforeUnmount(() => {
                 <Badge
                   variant="outline"
                   class="shrink-0 text-[10px]"
-                  :class="index === highlightedIndex ? 'border-white/20 bg-white/10 text-white' : 'border-slate-200 text-slate-500'"
+                  :class="index === highlightedIndex ? 'border-primary/30 bg-primary/10 text-primary' : 'border-slate-200 text-slate-500'"
                 >
                   {{ getTaskStatus(task) }}
                 </Badge>
               </div>
               <p
                 class="mt-1 truncate text-xs"
-                :class="index === highlightedIndex ? 'text-white/70' : 'text-slate-500'"
+                :class="index === highlightedIndex ? 'text-slate-600' : 'text-slate-500'"
               >
                 {{ getTaskMeta(task) }}
               </p>
               <p
                 v-if="task.description"
                 class="mt-1 truncate text-xs"
-                :class="index === highlightedIndex ? 'text-white/70' : 'text-slate-400'"
+                :class="index === highlightedIndex ? 'text-slate-500' : 'text-slate-400'"
               >
                 {{ task.description }}
               </p>

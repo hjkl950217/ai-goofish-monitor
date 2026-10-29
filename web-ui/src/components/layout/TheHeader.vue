@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import DashboardTaskSearch from '@/components/layout/DashboardTaskSearch.vue'
 import LocaleToggle from '@/components/layout/LocaleToggle.vue'
@@ -17,7 +17,6 @@ import { useWebSocket } from '@/composables/useWebSocket'
 import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
-const route = useRoute()
 const { toggleMobileNav } = useMobileNav()
 const { t } = useI18n()
 
@@ -30,8 +29,6 @@ const connectionTone = computed(() =>
     ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
     : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.45)]'
 )
-
-const isDashboard = computed(() => route.name === 'Dashboard')
 
 function goAccounts() {
   router.push('/accounts')
@@ -71,8 +68,8 @@ function goPrompts() {
     </div>
     </div>
 
-    <!-- Search & Navigation -->
-    <div v-if="isDashboard" class="hidden md:flex flex-grow max-w-md mx-8">
+    <!-- Search -->
+    <div class="hidden md:flex flex-grow max-w-md mx-8">
       <DashboardTaskSearch />
     </div>
 
