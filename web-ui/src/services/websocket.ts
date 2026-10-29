@@ -8,11 +8,7 @@ class WebSocketService {
   private shouldConnect = false;
 
   constructor() {
-    // 延迟连接，等待认证完成
-    // 只有在已登录时才尝试连接
-    if (localStorage.getItem('auth_logged_in') === 'true') {
-      this.connect();
-    }
+    // 不在这里自动连接：由 useAuth.checkSession 拿到有效会话后再 start()
   }
 
   public start() {
@@ -60,14 +56,18 @@ class WebSocketService {
       }
     };
 
-    this.ws.onclose = () => {
+    this.ws.onclose = (event) => {
       if (this.isConnected) {
         console.log('WebSocket disconnected');
         this.isConnected = false;
         this.emit('disconnected', { isConnected: false });
       }
-      // 只有在 shouldConnect 为 true 或已登录时才重连
-      if (this.shouldConnect || localStorage.getItem('auth_logged_in') === 'true') {
+      // 1008：服务端判定会话无效，停止重连，等重新登录后再 start()
+      if (event.code === 1008) {
+        this.shouldConnect = false;
+        return;
+      }
+      if (this.shouldConnect) {
         setTimeout(() => this.connect(), this.reconnectInterval);
       }
     };

@@ -212,12 +212,31 @@ def _dedupe_latest(records: Iterable[dict], group_key: str) -> list[dict]:
     return list(latest_by_key.values())
 
 
+def _filter_price_outliers(prices: list[float]) -> list[float]:
+    """按 IQR 剔除离群价格，少于 5 个样本时原样返回。"""
+    if len(prices) < 5:
+        return prices
+    ordered = sorted(prices)
+    q1 = ordered[len(ordered) // 4]
+    q3 = ordered[(len(ordered) * 3) // 4]
+    iqr = q3 - q1
+    if iqr <= 0:
+        return prices
+    low = q1 - 1.5 * iqr
+    high = q3 + 1.5 * iqr
+    kept = [value for value in prices if low <= value <= high]
+    return kept or prices
+
+
 def _summarize_prices(records: Iterable[dict]) -> dict:
     entries = [record for record in records if parse_price_value(record.get("price")) is not None]
-    prices = [float(record["price"]) for record in entries]
+    all_prices = [float(record["price"]) for record in entries]
+    prices = _filter_price_outliers(all_prices)
     if not prices:
         return {
             "sample_count": 0,
+            "raw_sample_count": 0,
+            "outlier_count": 0,
             "avg_price": None,
             "median_price": None,
             "min_price": None,
@@ -226,6 +245,8 @@ def _summarize_prices(records: Iterable[dict]) -> dict:
 
     return {
         "sample_count": len(prices),
+        "raw_sample_count": len(all_prices),
+        "outlier_count": len(all_prices) - len(prices),
         "avg_price": round(sum(prices) / len(prices), 2),
         "median_price": round(float(median(prices)), 2),
         "min_price": round(min(prices), 2),

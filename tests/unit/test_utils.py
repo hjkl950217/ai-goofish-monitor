@@ -5,6 +5,7 @@ from src.utils import (
     format_registration_days,
     get_link_unique_key,
     safe_get,
+    sanitize_filename,
     save_to_jsonl,
 )
 
@@ -23,6 +24,12 @@ def test_format_registration_days():
 def test_get_link_unique_key():
     link = "https://www.goofish.com/item?id=123&foo=bar"
     assert get_link_unique_key(link) == "https://www.goofish.com/item?id=123"
+
+
+def test_sanitize_filename_strips_leading_separator():
+    assert sanitize_filename("九号捡漏-N190") == "N190"
+    assert sanitize_filename("Sony A7M4") == "Sony_A7M4"
+    assert sanitize_filename("！！！") == "task"
 
 
 def test_save_to_jsonl(tmp_path, monkeypatch):

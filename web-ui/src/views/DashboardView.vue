@@ -96,10 +96,12 @@ const insightCards = computed(() => {
         : t('results.insights.noSnapshot'),
     },
     {
-      label: t('results.card.marketAvg'),
-      value: market?.min_price ? `¥${market.min_price}` : '—',
-      hint: market?.max_price
-        ? t('results.insights.highestPrice', { price: market.max_price })
+      label: t('results.insights.priceRange'),
+      value: market?.min_price != null && market?.max_price != null
+        ? `¥${market.min_price} - ¥${market.max_price}`
+        : '—',
+      hint: market?.median_price != null
+        ? `${t('results.insights.currentMedian')}¥${market.median_price}`
         : t('results.insights.noRange'),
     },
   ]
@@ -256,7 +258,8 @@ function openActivity(activity: { filename: string | null; type: string }) {
                     <div class="min-w-0">
                       <p class="text-sm font-bold text-slate-700 truncate">{{ activity.title }}</p>
                       <p class="text-[11px] text-slate-400">
-                        {{ activity.task_name }} · {{ formatRelativeTimeFromNow(activity.timestamp) }}
+                        {{ activity.task_name }}
+                        <template v-if="activity.timestamp"> · {{ formatRelativeTimeFromNow(activity.timestamp) }}</template>
                       </p>
                       <p v-if="activity.detail" class="mt-1 text-xs text-slate-500 truncate">{{ activity.detail }}</p>
                     </div>

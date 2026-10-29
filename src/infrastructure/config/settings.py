@@ -141,6 +141,12 @@ def reload_settings() -> None:
     scraper_settings = ScraperSettings()
 
 
+# 站内保存的 data/.env 优先于进程环境变量，启动时先载入再创建配置实例
+from dotenv import load_dotenv
+from src.infrastructure.config.env_manager import env_manager
+
+load_dotenv(dotenv_path=env_manager.env_file, override=True)
+
 # 导出便捷访问的配置实例
 settings = get_settings()
 ai_settings = AISettings()

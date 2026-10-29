@@ -26,10 +26,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'submit', data: EmittedData): void
+  (e: 'update:dirty', dirty: boolean): void
 }>()
 const { t } = useI18n()
 
 const form = ref<any>({})
+const formSnapshot = ref('')
+const currentSnapshot = () => JSON.stringify([form.value, keywordRulesInput.value])
 const accountStrategy = ref<'auto' | 'fixed' | 'rotate'>('auto')
 const selectedAccountStateFile = ref(AUTO_ACCOUNT_VALUE)
 const keywordRulesInput = ref('')
@@ -158,7 +161,13 @@ watch(() => [props.mode, props.initialData, props.defaultValues, props.defaultAc
   accountStrategy.value = form.value.account_strategy || (props.defaultAccount ? 'fixed' : 'auto')
   selectedAccountStateFile.value =
     form.value.account_state_file || props.defaultAccount || AUTO_ACCOUNT_VALUE
+  formSnapshot.value = currentSnapshot()
 }, { immediate: true, deep: true })
+
+watch([form, keywordRulesInput], () => {
+  if (!formSnapshot.value) return
+  emit('update:dirty', currentSnapshot() !== formSnapshot.value)
+}, { deep: true })
 
 watch(accountStrategy, (value) => {
   form.value.account_strategy = value

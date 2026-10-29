@@ -5,6 +5,8 @@ WebSocket 路由
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from typing import Set
 
+from src.api.auth_session import is_authenticated
+
 
 router = APIRouter()
 
@@ -16,7 +18,11 @@ active_connections: Set[WebSocket] = set()
 async def websocket_endpoint(
     websocket: WebSocket,
 ):
-    """WebSocket 端点"""
+    """WebSocket 端点（握手时校验会话 Cookie）"""
+    if not is_authenticated(websocket.cookies):
+        await websocket.close(code=1008)
+        return
+
     # 接受连接
     await websocket.accept()
     active_connections.add(websocket)

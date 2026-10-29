@@ -28,6 +28,7 @@ from src.services.account_strategy_service import normalize_account_strategy
 from src.infrastructure.persistence.storage_names import build_result_filename
 from src.services.price_history_service import delete_price_snapshots
 from src.services.result_storage_service import delete_result_file_records
+from src.services.task_run_status import read_last_runs
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
 async def _reload_scheduler_if_needed(
@@ -63,6 +64,12 @@ async def get_tasks(
     """获取所有任务"""
     tasks = await service.get_all_tasks()
     return serialize_tasks(tasks, scheduler_service)
+@router.get("/last-runs", response_model=dict)
+async def get_last_runs():
+    """每个任务最近一次运行的结论（由 spider_v2 写入，不需要解析日志）"""
+    return {"runs": read_last_runs()}
+
+
 @router.get("/{task_id}", response_model=dict)
 async def get_task(
     task_id: int,

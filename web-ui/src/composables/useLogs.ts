@@ -12,6 +12,7 @@ export function useLogs() {
   const isAutoRefresh = ref(true)
   const isLoading = ref(false)
   const error = ref<Error | null>(null)
+  const isAllMode = ref(false)
   
   let refreshInterval: number | null = null
   const MAX_LOG_CHARS = 200_000
@@ -24,12 +25,27 @@ export function useLogs() {
     // Prevent unbounded growth that can freeze the UI.
     if (logs.value.length > MAX_LOG_CHARS) {
       const tail = logs.value.slice(-TRIM_LOG_CHARS)
-      logs.value = `${TRIM_NOTICE}\n${tail}`
+      // 从换行处截断，避免留下半行
+      const firstBreak = tail.indexOf('\n')
+      const kept = firstBreak >= 0 ? tail.slice(firstBreak + 1) : tail
+      logs.value = `${TRIM_NOTICE}\n${kept}`
     }
   }
 
   async function fetchLogs() {
     if (isLoading.value) return
+    if (isAllMode.value) {
+      isLoading.value = true
+      try {
+        const data = await logsApi.getAllLogs(300)
+        logs.value = data.content || ''
+      } catch (e) {
+        if (e instanceof Error) error.value = e
+      } finally {
+        isLoading.value = false
+      }
+      return
+    }
     if (currentTaskId.value === null) return
     isLoading.value = true
     try {
@@ -51,6 +67,10 @@ export function useLogs() {
 
   async function loadLatest(limitLines: number = 50) {
     if (isFetchingHistory.value) return
+    if (isAllMode.value) {
+      await fetchLogs()
+      return
+    }
     if (currentTaskId.value === null) return
     isFetchingHistory.value = true
     try {
@@ -124,8 +144,18 @@ export function useLogs() {
   }
 
   function setTaskId(taskId: number | null) {
+    isAllMode.value = false
     if (currentTaskId.value === taskId) return
     currentTaskId.value = taskId
+    logs.value = ''
+    currentPos.value = 0
+    historyOffset.value = 0
+    hasMoreHistory.value = false
+  }
+
+  function setAllMode() {
+    isAllMode.value = true
+    currentTaskId.value = null
     logs.value = ''
     currentPos.value = 0
     historyOffset.value = 0
@@ -146,11 +176,13 @@ export function useLogs() {
     isLoading, // Not strictly used for polling to avoid flickering
     isFetchingHistory,
     hasMoreHistory,
+    isAllMode,
     error,
     fetchLogs,
     clearLogs,
     toggleAutoRefresh,
     setTaskId,
+    setAllMode,
     loadLatest,
     loadPrevious
   }

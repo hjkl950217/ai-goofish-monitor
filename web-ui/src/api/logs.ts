@@ -16,6 +16,10 @@ export async function clearLogs(taskId?: number | null): Promise<void> {
   await http('/api/logs', { method: 'DELETE', params })
 }
 
+export async function getAllLogs(limitLines: number = 300): Promise<{ content: string; line_count: number }> {
+  return await http('/api/logs/all', { params: { limit_lines: limitLines } })
+}
+
 export async function getLogTail(
   taskId: number,
   offsetLines: number = 0,

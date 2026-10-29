@@ -79,7 +79,7 @@ def sanitize_filename(value: str) -> str:
     if not value:
         return "task"
     cleaned = re.sub(r"[^a-zA-Z0-9_-]+", "_", value.strip())
-    cleaned = re.sub(r"_+", "_", cleaned).strip("_")
+    cleaned = re.sub(r"[_-]{2,}", "_", cleaned).strip("_-")
     return cleaned or "task"
 
 

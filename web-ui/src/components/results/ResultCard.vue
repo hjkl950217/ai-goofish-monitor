@@ -332,9 +332,18 @@ async function onToggleFavorite() {
           <div class="flex items-center gap-2">
             <component :is="recommendationStatus.icon" class="w-4 h-4" :class="recommendationStatus.text" />
             <span class="text-sm font-bold" :class="recommendationStatus.text">{{ recommendationStatus.label }}</span>
+            <span
+              v-if="ai?.error"
+              class="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-600"
+              :title="ai.error"
+            >{{ t('results.card.analysisFailed') }}</span>
+            <span
+              v-else-if="!ai?.reason"
+              class="rounded bg-slate-200/70 px-1.5 py-0.5 text-[10px] font-bold text-slate-600"
+            >{{ t('results.card.pendingAnalysis') }}</span>
           </div>
           <div class="flex items-center gap-1">
-             <span class="text-[10px] font-medium uppercase tracking-wider text-slate-400">AI Match</span>
+             <span class="text-[10px] font-medium uppercase tracking-wider text-slate-400">{{ t('results.card.aiMatch') }}</span>
              <span class="text-sm font-black" :class="recommendationStatus.text">{{ hasMatchScore ? `${matchScore}%` : '—' }}</span>
           </div>
         </div>
@@ -374,7 +383,7 @@ async function onToggleFavorite() {
         </div>
         <div class="bg-slate-50/50 p-2.5 rounded-xl border border-slate-100/50">
           <div class="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 mb-1">
-            <TrendingDown class="w-3 h-3" /> {{ t('results.card.historicalLow') }}
+            <TrendingDown class="w-3 h-3" /> {{ t('results.card.ownLow') }}
           </div>
           <div class="text-sm font-bold text-slate-700">
             {{ priceInsight.min_price ? `¥${priceInsight.min_price}` : '—' }}

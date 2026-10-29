@@ -43,11 +43,16 @@ def test_lifespan_cleans_task_logs_on_startup(monkeypatch):
     fake_scheduler = _FakeSchedulerService()
     fake_process = _FakeProcessService()
 
+    async def _fake_backup_loop():
+        called["backup_started"] = True
+        await asyncio.sleep(3600)
+
     monkeypatch.setattr(app_module, "scheduler_service", fake_scheduler)
     monkeypatch.setattr(app_module, "process_service", fake_process)
     monkeypatch.setattr(app_module, "TaskService", _FakeTaskService)
     monkeypatch.setattr(app_module, "SqliteTaskRepository", lambda: object())
     monkeypatch.setattr(app_module, "bootstrap_sqlite_storage", lambda: called.setdefault("bootstrapped", True))
+    monkeypatch.setattr(app_module, "sqlite_backup_loop", _fake_backup_loop)
     monkeypatch.setattr(
         app_module,
         "cleanup_task_logs",
@@ -57,12 +62,14 @@ def test_lifespan_cleans_task_logs_on_startup(monkeypatch):
 
     async def _run():
         async with app_module.lifespan(None):
+            await asyncio.sleep(0)  # 让备份协程获得一次调度
             assert fake_scheduler.started is True
             assert fake_scheduler.reload_payload == []
 
     asyncio.run(_run())
 
     assert called["bootstrapped"] is True
+    assert called["backup_started"] is True
     assert called["keep_days"] == 9
     assert fake_scheduler.stopped is True
     assert fake_process.stop_all_called is True

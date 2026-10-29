@@ -1,6 +1,10 @@
 """
 环境变量管理器
 负责读取和更新 .env 文件，并在读取时回退到运行时环境变量
+
+配置优先级（get_value）：本文件（站内保存，data/.env，已挂载目录，容器重建不丢）
+> 进程环境变量（compose environment / env_file 注入，以及启动时 load_dotenv 载入的部署 .env）
+> 代码默认值。
 """
 import os
 import re
@@ -23,6 +27,7 @@ class EnvManager:
     def _ensure_env_file_exists(self):
         """确保 .env 文件存在"""
         if not self.env_file.exists():
+            self.env_file.parent.mkdir(parents=True, exist_ok=True)
             self.env_file.touch()
 
     def read_env(self) -> Dict[str, str]:
@@ -105,5 +110,5 @@ class EnvManager:
         return f'"{escaped}"'
 
 
-# 全局实例
-env_manager = EnvManager()
+# 全局实例：站内保存的配置落到已挂载的 data/.env，容器重建后仍可读回
+env_manager = EnvManager("data/.env")

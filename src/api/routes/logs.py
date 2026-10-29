@@ -1,7 +1,9 @@
 """
 日志管理路由
 """
+import glob
 import os
+import re
 from typing import Optional, Tuple, List
 import aiofiles
 from fastapi import APIRouter, Depends, Query
@@ -12,6 +14,39 @@ from src.utils import resolve_task_log_path
 
 
 router = APIRouter(prefix="/api/logs", tags=["logs"])
+
+_TIMESTAMP_RE = re.compile(r"^\[\s*(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]")
+
+
+async def _read_merged_lines(limit_lines: int) -> List[str]:
+    """合并 logs/ 下所有任务日志，按行首时间戳排序，返回最近 limit_lines 行。"""
+    entries: List[Tuple[str, int, int, str, str]] = []
+    for index, path in enumerate(sorted(glob.glob(os.path.join("logs", "*.log")))):
+        try:
+            async with aiofiles.open(path, "r", encoding="utf-8", errors="replace") as f:
+                lines = await f.readlines()
+        except OSError:
+            continue
+        name = os.path.splitext(os.path.basename(path))[0]
+        current_ts = ""
+        for seq, line in enumerate(lines[-limit_lines:]):
+            text = line.rstrip("\n")
+            match = _TIMESTAMP_RE.match(text)
+            if match:
+                current_ts = match.group(1)
+            entries.append((current_ts, index, seq, name, text))
+
+    entries.sort()
+    return [f"[{name}] {text}" for _, _, _, name, text in entries[-limit_lines:]]
+
+
+@router.get("/all")
+async def get_all_logs(
+    limit_lines: int = Query(default=300, ge=1, le=2000),
+):
+    """所有任务日志的合并视图"""
+    lines = await _read_merged_lines(limit_lines)
+    return {"content": "\n".join(lines), "line_count": len(lines)}
 
 
 async def _read_tail_lines(
@@ -175,19 +210,6 @@ async def clear_logs(
         return {"message": "任务不存在或已删除。"}
 
     log_file_path = resolve_task_log_path(task_id, task.task_name)
-
-    if not os.path.exists(log_file_path):
-        return {"message": "日志文件不存在，无需清空。"}
-
-    try:
-        async with aiofiles.open(log_file_path, 'w', encoding='utf-8') as f:
-            await f.write("")
-        return {"message": "日志已成功清空。"}
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"message": f"清空日志文件时出错: {e}"}
-        )
 
     if not os.path.exists(log_file_path):
         return {"message": "日志文件不存在，无需清空。"}

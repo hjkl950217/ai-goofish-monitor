@@ -3,6 +3,7 @@ import json
 import os
 import random
 import re
+import sys
 import tempfile
 from datetime import datetime
 from typing import Optional
@@ -1469,7 +1470,7 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                         trace.close()
                 log_time("任务执行完毕，浏览器将在5秒后自动关闭...")
                 await asyncio.sleep(5)
-                if debug_limit:
+                if debug_limit and sys.stdin.isatty():
                     input("按回车键关闭浏览器...")
                 await browser.close()
 
@@ -1591,5 +1592,9 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
 
     # 清理任务图片目录
     cleanup_task_images(task_config.get("task_name", "default"))
+
+    if last_error:
+        # 带上真实错误抛出，避免调用方把「抓取失败」当成「0 条新商品」
+        raise RuntimeError(last_error)
 
     return processed_item_count

@@ -32,11 +32,14 @@ const {
   startTask,
   stopTask,
   stoppingTaskIds,
+  lastRuns,
 } = useTasks()
 const route = useRoute()
 
 // State for dialogs
 const isEditDialogOpen = ref(false)
+const isEditDirty = ref(false)
+const isDiscardDialogOpen = ref(false)
 const isCriteriaDialogOpen = ref(false)
 const isEditSubmitting = ref(false)
 const selectedTask = ref<Task | null>(null)
@@ -81,7 +84,26 @@ async function handleConfirmDeleteTask() {
 
 function handleEditTask(task: Task) {
   selectedTask.value = task
+  isEditDirty.value = false
   isEditDialogOpen.value = true
+}
+
+function handleEditDialogOpenChange(open: boolean) {
+  if (open) {
+    isEditDialogOpen.value = true
+    return
+  }
+  if (isEditDirty.value) {
+    isDiscardDialogOpen.value = true
+    return
+  }
+  isEditDialogOpen.value = false
+}
+
+function discardEditChanges() {
+  isDiscardDialogOpen.value = false
+  isEditDialogOpen.value = false
+  isEditDirty.value = false
 }
 
 watch(
@@ -92,6 +114,7 @@ watch(
     const match = tasks.value.find((task) => task.id === editTaskId)
     if (!match) return
     selectedTask.value = match
+    isEditDirty.value = false
     isEditDialogOpen.value = true
   },
   { immediate: true }
@@ -102,6 +125,7 @@ async function handleUpdateTask(data: TaskUpdate) {
   isEditSubmitting.value = true
   try {
     await updateTask(selectedTask.value.id, data)
+    isEditDirty.value = false
     isEditDialogOpen.value = false
   }
   catch (e) {
@@ -212,7 +236,7 @@ onMounted(fetchAccountOptions)
     </div>
 
     <!-- Edit Task Dialog -->
-    <Dialog v-model:open="isEditDialogOpen">
+    <Dialog :open="isEditDialogOpen" @update:open="handleEditDialogOpenChange">
       <DialogContent class="sm:max-w-[640px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{{ t('tasks.editDialog.title', { task: selectedTask?.task_name || "" }) }}</DialogTitle>
@@ -223,11 +247,32 @@ onMounted(fetchAccountOptions)
           :initial-data="selectedTask"
           :account-options="accountOptions"
           :default-values="editDefaults"
+          @update:dirty="isEditDirty = $event"
           @submit="(data) => handleUpdateTask(data as TaskUpdate)"
         />
         <DialogFooter>
+          <Button variant="outline" @click="handleEditDialogOpenChange(false)">
+            {{ t('common.cancel') }}
+          </Button>
           <Button type="submit" form="task-form" :disabled="isEditSubmitting">
             {{ isEditSubmitting ? t('common.saving') : t('tasks.editDialog.save') }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog v-model:open="isDiscardDialogOpen">
+      <DialogContent class="sm:max-w-[420px]">
+        <DialogHeader>
+          <DialogTitle>{{ t('tasks.editDialog.discardTitle') }}</DialogTitle>
+          <DialogDescription>{{ t('tasks.editDialog.discardDescription') }}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" @click="isDiscardDialogOpen = false">
+            {{ t('tasks.editDialog.keepEditing') }}
+          </Button>
+          <Button variant="destructive" @click="discardEditChanges">
+            {{ t('tasks.editDialog.discardConfirm') }}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -270,6 +315,7 @@ onMounted(fetchAccountOptions)
       :tasks="tasks"
       :is-loading="isLoading"
       :stopping-ids="stoppingTaskIds"
+      :last-runs="lastRuns"
       @delete-task="handleDeleteTask"
       @edit-task="handleEditTask"
       @run-task="handleStartTask"

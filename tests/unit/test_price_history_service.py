@@ -1,9 +1,20 @@
 from src.services.price_history_service import (
+    _summarize_prices,
     build_item_price_context,
     build_price_history_insights,
     load_price_snapshots,
     record_market_snapshots,
 )
+
+
+def test_summarize_prices_drops_outliers():
+    records = [{"price": price} for price in [5900, 5950, 6000, 6050, 6100, 3]]
+    summary = _summarize_prices(records)
+
+    assert summary["outlier_count"] == 1
+    assert summary["raw_sample_count"] == 6
+    assert summary["sample_count"] == 5
+    assert summary["min_price"] == 5900.0
 
 
 def test_record_market_snapshots_and_build_price_history_insights(tmp_path, monkeypatch):

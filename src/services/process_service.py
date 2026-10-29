@@ -16,6 +16,7 @@ from src.config import STATE_FILE
 from src.failure_guard import FailureGuard
 from src.infrastructure.persistence.sqlite_task_repository import find_task_by_name_sync
 from src.utils import build_task_log_path
+from src.services.task_run_status import status_path
 
 STOP_TIMEOUT_SECONDS = 20
 SPIDER_DEBUG_LIMIT_ENV = "SPIDER_DEBUG_LIMIT"
@@ -86,7 +87,7 @@ class ProcessService:
         log_file_handle = open(log_file_path, "a", encoding="utf-8")
         return log_file_path, log_file_handle
 
-    def _build_spawn_command(self, task_name: str) -> list[str]:
+    def _build_spawn_command(self, task_name: str, task_id: int | None = None) -> list[str]:
         command = [
             sys.executable,
             "-u",
@@ -94,6 +95,8 @@ class ProcessService:
             "--task-name",
             task_name,
         ]
+        if task_id is not None:
+            command.extend(["--status-file", status_path(task_id)])
         debug_limit = str(os.getenv(SPIDER_DEBUG_LIMIT_ENV, "")).strip()
         if debug_limit.isdigit() and int(debug_limit) > 0:
             command.extend(["--debug-limit", debug_limit])
@@ -103,13 +106,14 @@ class ProcessService:
         self,
         task_name: str,
         log_file_handle: TextIO,
+        task_id: int,
     ) -> asyncio.subprocess.Process:
         preexec_fn = os.setsid if sys.platform != "win32" else None
         child_env = os.environ.copy()
         child_env["PYTHONIOENCODING"] = "utf-8"
         child_env["PYTHONUTF8"] = "1"
         return await asyncio.create_subprocess_exec(
-            *self._build_spawn_command(task_name),
+            *self._build_spawn_command(task_name, task_id),
             stdout=log_file_handle,
             stderr=log_file_handle,
             preexec_fn=preexec_fn,
@@ -149,7 +153,7 @@ class ProcessService:
         log_file_handle = None
         try:
             log_file_path, log_file_handle = self._open_log_file(task_id, task_name)
-            process = await self._spawn_process(task_name, log_file_handle)
+            process = await self._spawn_process(task_name, log_file_handle, task_id)
         except Exception as exc:
             self._close_log_handle(log_file_handle)
             print(f"启动任务 '{task_name}' 失败: {exc}")

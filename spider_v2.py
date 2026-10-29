@@ -11,6 +11,7 @@ from src.config import STATE_FILE
 from src.infrastructure.persistence.sqlite_task_repository import SqliteTaskRepository
 from src.scraper import scrape_xianyu
 from src.services.prompt_defaults import ensure_default_prompts
+from src.services.task_run_status import write_run_status
 
 
 async def main():
@@ -32,6 +33,7 @@ async def main():
     parser.add_argument("--debug-limit", type=int, default=0, help="调试模式：每个任务仅处理前 N 个新商品（0 表示无限制）")
     parser.add_argument("--config", type=str, help="指定任务配置文件路径（传入时优先读取 JSON）")
     parser.add_argument("--task-name", type=str, help="只运行指定名称的单个任务 (用于定时任务调度)")
+    parser.add_argument("--status-file", type=str, help="运行结论写入的文件路径（由调度器传入）")
     args = parser.parse_args()
 
     if args.config:
@@ -45,7 +47,7 @@ async def main():
     else:
         repository = SqliteTaskRepository()
         tasks = await repository.find_all()
-        tasks_config = [task.dict() for task in tasks]
+        tasks_config = [task.model_dump() for task in tasks]
 
     def normalize_keywords(value):
         if value is None:
@@ -215,12 +217,38 @@ async def main():
             await shutdown_task
 
     print("\n--- 所有任务执行完毕 ---")
+    failed = False
     for i, result in enumerate(results):
         task_name = active_task_configs[i]['task_name']
         if isinstance(result, Exception):
+            failed = True
             print(f"任务 '{task_name}' 因异常而终止: {result}")
+        elif result == 0:
+            print(f"任务 '{task_name}' 结束，本次没有新商品入库（可能没有新货，也可能搜索无返回或被规则筛掉，见上方日志）。")
         else:
             print(f"任务 '{task_name}' 正常结束，本次运行共处理了 {result} 个新商品。")
 
+    # 把结论写给调度器，站内不需要解析日志就能知道这次跑成什么样
+    if args.status_file and len(results) == 1:
+        result = results[0]
+        task_name = active_task_configs[0]['task_name']
+        if isinstance(result, Exception):
+            write_run_status(
+                args.status_file,
+                task_name=task_name,
+                status="failed",
+                error=str(result),
+            )
+        else:
+            count = int(result or 0)
+            write_run_status(
+                args.status_file,
+                task_name=task_name,
+                status="ok" if count else "empty",
+                item_count=count,
+            )
+
+    return failed
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    sys.exit(1 if asyncio.run(main()) else 0)

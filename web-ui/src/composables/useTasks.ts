@@ -13,7 +13,16 @@ export function useTasks() {
   const isLoading = ref(false)
   const error = ref<Error | null>(null)
   const stoppingTaskIds = ref<Set<number>>(new Set())
+  const lastRuns = ref<Record<string, taskApi.TaskRunStatus>>({})
   const { on } = useWebSocket()
+
+  async function fetchLastRuns() {
+    try {
+      lastRuns.value = await taskApi.getLastRuns()
+    } catch (e) {
+      console.error(e)
+    }
+  }
 
   async function fetchTasks(options?: { silent?: boolean }) {
     if (!options?.silent) {
@@ -22,6 +31,7 @@ export function useTasks() {
     error.value = null
     try {
       tasks.value = await taskApi.getAllTasks()
+      await fetchLastRuns()
     } catch (e) {
       if (e instanceof Error) {
         error.value = e
@@ -46,7 +56,6 @@ export function useTasks() {
     }
     fetchTasks({ silent: true })
   })
-
   async function createTask(data: TaskGenerateRequest): Promise<TaskCreateResponse> {
     isLoading.value = true
     error.value = null
@@ -150,5 +159,6 @@ export function useTasks() {
     startTask,
     stopTask,
     stoppingTaskIds,
+    lastRuns,
   }
 }

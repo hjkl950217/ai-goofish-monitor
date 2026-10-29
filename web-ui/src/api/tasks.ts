@@ -11,6 +11,20 @@ export async function getAllTasks(): Promise<Task[]> {
   return await http('/api/tasks')
 }
 
+export interface TaskRunStatus {
+  task_id?: number
+  task_name: string
+  status: 'ok' | 'empty' | 'failed' | string
+  item_count: number
+  finished_at: string
+  error?: string | null
+}
+
+export async function getLastRuns(): Promise<Record<string, TaskRunStatus>> {
+  const result = await http('/api/tasks/last-runs')
+  return result.runs ?? {}
+}
+
 export async function createTaskWithAI(data: TaskGenerateRequest): Promise<TaskCreateResponse> {
   return await http('/api/tasks/generate', {
     method: 'POST',

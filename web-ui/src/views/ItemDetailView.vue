@@ -96,6 +96,13 @@ const sellerRows = computed(() => {
 
 const productTags = computed(() => (Array.isArray(info.value?.商品标签) ? info.value!.商品标签 : []) as string[])
 
+const EMPTY_VALUES = new Set(['', '-', '暂无', 'N/A', 'null', 'undefined'])
+function display(value: unknown): string {
+  if (value === null || value === undefined) return '—'
+  const text = String(value).trim()
+  return EMPTY_VALUES.has(text) ? '—' : text
+}
+
 async function load() {
   if (!itemId.value) return
   isLoading.value = true
@@ -250,23 +257,23 @@ watch(itemId, load)
               </div>
               <div class="flex justify-between gap-2">
                 <dt class="text-slate-400">{{ t('results.card.shipsFrom') }}</dt>
-                <dd class="truncate font-medium text-slate-700">{{ info.发货地区 || '—' }}</dd>
+                <dd class="truncate font-medium text-slate-700">{{ display(info.发货地区) }}</dd>
               </div>
               <div class="flex justify-between gap-2">
                 <dt class="text-slate-400">{{ t('results.card.views') }}</dt>
-                <dd class="font-medium text-slate-700">{{ info.浏览量 ?? '—' }}</dd>
+                <dd class="font-medium text-slate-700">{{ display(info.浏览量) }}</dd>
               </div>
               <div class="flex justify-between gap-2">
                 <dt class="text-slate-400">{{ t('results.card.wanted') }}</dt>
-                <dd class="font-medium text-slate-700">{{ info['“想要”人数'] ?? '—' }}</dd>
+                <dd class="font-medium text-slate-700">{{ display(info['“想要”人数']) }}</dd>
               </div>
               <div class="flex justify-between gap-2">
                 <dt class="text-slate-400">{{ t('itemDetail.collected') }}</dt>
-                <dd class="font-medium text-slate-700">{{ info.商品收藏数 ?? '—' }}</dd>
+                <dd class="font-medium text-slate-700">{{ display(info.商品收藏数) }}</dd>
               </div>
               <div class="flex justify-between gap-2">
                 <dt class="text-slate-400">{{ t('itemDetail.soldCount') }}</dt>
-                <dd class="font-medium text-slate-700">{{ info.商品已售数 ?? '—' }}</dd>
+                <dd class="font-medium text-slate-700">{{ display(info.商品已售数) }}</dd>
               </div>
             </dl>
           </CardContent>
@@ -310,21 +317,25 @@ watch(itemId, load)
           <CardContent>
             <dl class="space-y-1.5 text-xs">
               <div v-for="row in [
-                  ['avg_price', t('itemDetail.marketAvg')],
-                  ['median_price', t('itemDetail.marketMedian')],
-                  ['min_price', t('itemDetail.marketLow')],
-                  ['max_price', t('itemDetail.marketHigh')],
-                  ['historical_low', t('itemDetail.historicalLow')],
+                  ['market_avg_price', t('itemDetail.marketAvg')],
+                  ['market_median_price', t('itemDetail.marketMedian')],
+                  ['avg_price', t('itemDetail.ownAvg')],
+                  ['median_price', t('itemDetail.ownMedian')],
+                  ['min_price', t('itemDetail.historicalLow')],
+                  ['max_price', t('itemDetail.historicalHigh')],
                 ]"
                 :key="row[0]"
                 class="flex justify-between gap-2"
               >
                 <dt class="text-slate-400">{{ row[1] }}</dt>
                 <dd class="font-medium text-slate-700">
-                  {{ priceInsight[row[0] as keyof typeof priceInsight] ?? '—' }}
+                  {{ display(priceInsight[row[0] as keyof typeof priceInsight]) }}
                 </dd>
               </div>
             </dl>
+            <p class="mt-3 text-[11px] leading-relaxed text-slate-400">
+              {{ t('itemDetail.priceSourceNote') }}
+            </p>
           </CardContent>
         </Card>
 

@@ -33,11 +33,21 @@ interface Props {
   tasks: Task[]
   isLoading: boolean
   stoppingIds?: Set<number>
+  lastRuns?: Record<string, { status: string; item_count: number; finished_at: string; error?: string | null }>
 }
 
 const props = defineProps<Props>()
 const { t } = useI18n()
 const isStopping = (id: number) => props.stoppingIds?.has(id) ?? false
+const lastRunOf = (id: number) => props.lastRuns?.[String(id)]
+const lastRunText = (id: number) => {
+  const run = lastRunOf(id)
+  if (!run?.finished_at) return ''
+  const time = run.finished_at.slice(5, 16).replace('T', ' ')
+  if (run.status === 'failed') return t('tasks.table.lastRunFailed', { time })
+  if (!run.item_count) return t('tasks.table.lastRunEmpty', { time })
+  return t('tasks.table.lastRun', { time, count: run.item_count })
+}
 const isKeywordMode = (task: Task) => task.decision_mode === 'keyword'
 const nowMs = ref(Date.now())
 let timer: number | null = null
@@ -129,7 +139,7 @@ const emit = defineEmits<{
                   ]"
                 >
                   <component :is="isKeywordMode(task) ? Keyboard : BrainCircuit" class="mr-1 h-3 w-3" />
-                  {{ isKeywordMode(task) ? 'KEYWORD' : 'AI' }}
+                  {{ isKeywordMode(task) ? t('tasks.table.modeKeyword') : t('tasks.table.modeAi') }}
                 </Badge>
               </div>
 
@@ -334,7 +344,7 @@ const emit = defineEmits<{
                 <div class="flex items-center gap-1.5">
                   <div :class="[ 'w-1.5 h-1.5 rounded-full shadow-sm', task.is_running ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300' ]"></div>
                   <span :class="[ 'text-[9px] font-black tracking-widest uppercase', task.is_running ? 'text-emerald-600' : 'text-slate-400' ]">
-                    {{ task.is_running ? 'ACTIVE' : 'IDLE' }}
+                    {{ task.is_running ? t('tasks.table.statusActive') : t('tasks.table.statusIdle') }}
                   </span>
                 </div>
               </div>
@@ -353,7 +363,7 @@ const emit = defineEmits<{
                     ]"
                   >
                     <component :is="isKeywordMode(task) ? Keyboard : BrainCircuit" class="w-2.5 h-2.5 mr-1" />
-                    {{ isKeywordMode(task) ? 'KEYWORD' : 'AI ENGINE' }}
+                    {{ isKeywordMode(task) ? t('tasks.table.modeKeyword') : t('tasks.table.modeAi') }}
                   </Badge>
                 </div>
                 
@@ -453,6 +463,14 @@ const emit = defineEmits<{
                   >
                     {{ resolveNextRunLabel(task) }}
                   </div>
+                </div>
+                <div
+                  v-if="lastRunText(task.id)"
+                  class="text-[9px] font-semibold"
+                  :class="lastRunOf(task.id)?.status === 'failed' ? 'text-rose-500' : 'text-slate-400'"
+                  :title="lastRunOf(task.id)?.error || undefined"
+                >
+                  {{ lastRunText(task.id) }}
                 </div>
                 <div class="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest">
                   <Layers class="w-3 h-3 opacity-50" /> {{ task.max_pages || 3 }}P
