@@ -459,10 +459,10 @@ const enUS = {
       saveFailed: 'Failed to save prompt.',
       promptContentFailed: 'Failed to load prompt content.',
       files: {
-        base: 'Base analysis template (shared by all crawls)',
-        example: 'Example criteria (reference when writing requirements)',
+        base: 'Base analysis template, shared by all crawls',
+        example: 'Example criteria, reference when writing requirements',
         macbook: 'Generation example: MacBook criteria',
-        modelCheck: 'Model check prompt (identifies the exact model)',
+        modelCheck: 'Model check prompt, identifies the exact model',
       },
     },
     configFile: {

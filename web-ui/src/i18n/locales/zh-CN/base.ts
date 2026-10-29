@@ -459,10 +459,10 @@ const zhCN = {
       saveFailed: '提示词保存失败',
       promptContentFailed: '加载提示词内容失败',
       files: {
-        base: '分析基础模板（所有抓取共用）',
-        example: '判断标准示例（写需求时可参考）',
+        base: '分析基础模板，所有抓取共用',
+        example: '判断标准示例，写需求时可参考',
         macbook: '生成示例：MacBook 判断标准',
-        modelCheck: '型号判断提示词（识别商品具体型号）',
+        modelCheck: '型号判断提示词，识别商品具体型号',
       },
     },
     configFile: {
