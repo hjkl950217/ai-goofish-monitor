@@ -80,13 +80,13 @@ class ItemAnalysisDispatcher:
         record = copy.deepcopy(job.final_record)
         item_data = record.get("item_info", {}) or {}
 
-        # 型号核对放在最前面：不是任务要的型号，卖家信息、AI 分析、图片都不做
+        # 型号核对放在最前面：不是任务要的型号、或判不出型号的，卖家信息、AI 分析、图片都不做
         if job.model_check and not job.update_existing:
             verdict = await self._check_model(job, item_data)
-            if verdict is not None and verdict.get("matched") is False:
+            if not model_check_service.is_accepted(verdict):
                 print(
-                    f"   [型号] 商品 {item_data.get('item_id')} 不是「{job.keyword}」，跳过入库："
-                    f"{verdict.get('reason')}"
+                    f"   [型号] 商品 {item_data.get('item_id')} 不是「{job.keyword}」或判不出型号，跳过入库："
+                    f"{(verdict or {}).get('reason')}"
                 )
                 return
 
@@ -117,7 +117,7 @@ class ItemAnalysisDispatcher:
         await self._notify_if_recommended(item_data, record["ai_analysis"])
 
     async def _check_model(self, job: ItemAnalysisJob, item_data: dict) -> Optional[dict]:
-        """返回 None 表示判断不了，调用方放行。"""
+        """返回 None 表示调用出错，由 is_accepted 按放行处理。"""
         item_id = str(item_data.get("item_id") or "").strip()
         if not item_id:
             return None

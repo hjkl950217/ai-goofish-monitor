@@ -119,13 +119,33 @@ def test_mismatch_is_stored(seeded_db, monkeypatch):
     assert "M1 85" in cached["reason"]
 
 
-def test_ai_failure_falls_open(seeded_db, monkeypatch):
+def test_ai_failure_returns_unknown_and_does_not_cache(seeded_db, monkeypatch):
     fake = FakeClient(error=RuntimeError("timeout"))
     monkeypatch.setattr(svc, "_get_client", lambda: fake)
 
     outcome = _check()
     assert outcome["matched"] is None
     assert "失败" in outcome["reason"]
+    # 调用失败不写缓存，否则这条商品再也不会被重判
+    assert svc.load_check("1", 0) is None
+
+
+def test_unknown_verdict_is_rejected(seeded_db, monkeypatch):
+    fake = FakeClient(text='{"matched": null, "reason": "标题未写型号"}')
+    monkeypatch.setattr(svc, "_get_client", lambda: fake)
+
+    outcome = _check()
+    assert outcome["matched"] is None
+    assert svc.is_accepted(outcome) is False
+    assert svc.load_check("1", 0) is not None
+
+
+def test_accepted_rules():
+    assert svc.is_accepted({"matched": True, "source": "ai"}) is True
+    assert svc.is_accepted({"matched": False, "source": "ai"}) is False
+    # 功能没开、调用失败都放行，避免把故障变成丢数据
+    assert svc.is_accepted({"matched": None, "source": "skipped"}) is True
+    assert svc.is_accepted({"matched": None, "source": "error"}) is True
 
 
 def test_cached_verdict_skips_second_call(seeded_db, monkeypatch):
@@ -144,6 +164,20 @@ def test_backfill_skips_already_checked(seeded_db):
     svc.save_check("1", 0, False, "是 M1 85", "2026-10-01T00:00:00")
     pending = backfill.fetch_candidates()
     assert [row["item_id"] for row in pending] == ["2"]
+
+
+def test_backfill_removes_unknown_verdict(seeded_db, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    async def fake_check(**kwargs):
+        return {"matched": None, "reason": "标题未写型号", "source": "ai"}
+
+    monkeypatch.setattr(backfill.model_check_service, "check_item", fake_check)
+    status = asyncio.run(backfill.run_check(workers=1))
+
+    assert status["removed"] == 2
+    with sqlite_connection() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM result_items").fetchone()[0] == 0
 
 
 def test_remove_result_deletes_row_and_images(seeded_db, tmp_path, monkeypatch):

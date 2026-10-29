@@ -136,7 +136,7 @@ async def check_item(
     """判断单个商品。
 
     返回 {"matched": True/False/None, "reason": str, "source": str}。
-    matched 为 None 时调用方必须放行。命中缓存时不重复调 AI。
+    matched 为 None 表示判不出，调用方用 is_accepted 决定去留。命中缓存时不重复调 AI。
     """
     if not is_usable():
         return {"matched": None, "reason": "型号判断未启用", "source": "skipped"}
@@ -174,5 +174,20 @@ async def check_item(
         reason = f"型号判断失败: {exc}"[:500]
         source = "error"
 
-    save_check(item_id, task_id, matched, reason, datetime.now().isoformat(timespec="seconds"))
+    # 调用失败不算判断结果，不写缓存，下次还能重判
+    if source != "error":
+        save_check(item_id, task_id, matched, reason, datetime.now().isoformat(timespec="seconds"))
     return {"matched": matched, "reason": reason, "source": source}
+
+
+def is_accepted(verdict: Optional[dict]) -> bool:
+    """型号校验是否放行。只有明确匹配才放行，判不出直接拦掉。
+
+    两种例外：功能没启用（source=skipped）、AI 调用失败（source=error），
+    它们不代表「不是目标型号」，放行避免把故障变成丢数据。
+    """
+    if verdict is None:
+        return True
+    if verdict.get("source") in {"skipped", "error"}:
+        return True
+    return verdict.get("matched") is True

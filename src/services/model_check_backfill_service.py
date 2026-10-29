@@ -204,7 +204,16 @@ async def run_check(
                 verdict = {"matched": None, "reason": f"异常: {exc}", "source": "error"}
 
             matched = verdict.get("matched")
-            if matched is False:
+            if model_check_service.is_accepted(verdict):
+                if matched is True:
+                    _status["matched"] += 1
+                    flag = "匹配"
+                else:
+                    _status["failed"] += 1
+                    flag = "调用失败，保留"
+            else:
+                if matched is None:
+                    _status["failed"] += 1
                 try:
                     await asyncio.to_thread(
                         remove_result,
@@ -213,16 +222,10 @@ async def run_check(
                         str(row["task_name"] or ""),
                     )
                     _status["removed"] += 1
-                    flag = "已删除"
+                    flag = "判不出，已删除" if matched is None else "已删除"
                 except Exception as exc:  # noqa: BLE001
                     _status["failed"] += 1
                     flag = f"删除失败: {exc}"
-            elif matched is True:
-                _status["matched"] += 1
-                flag = "匹配"
-            else:
-                _status["failed"] += 1
-                flag = "未判出"
 
             _status["done"] += 1
             _push_recent(f"[{_status['done']}/{total}] {item_id} {flag}")
