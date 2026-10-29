@@ -109,7 +109,7 @@ const zhCNExtra = {
         fixed: '固定账号',
         fixedDescription: '当前任务始终绑定一个指定账号。',
         rotate: '轮换账号',
-        rotateDescription: '当前任务强制使用账号池轮换。',
+        rotateDescription: '当前任务强制使用账号池轮换。需先在设置 → 账号轮换里打开总开关，否则不生效。',
       },
       publishOptions: { none: '不筛选（默认）', latest: '最新', oneDay: '1天内', threeDays: '3天内', sevenDays: '7天内', fourteenDays: '14天内' },
       validation: {

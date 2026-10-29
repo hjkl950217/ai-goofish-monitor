@@ -109,7 +109,7 @@ const enUSExtra = {
         fixed: 'Fixed',
         fixedDescription: 'Always bind this task to one specific account.',
         rotate: 'Rotate',
-        rotateDescription: 'Force this task to rotate through the account pool.',
+        rotateDescription: 'Force this task to rotate through the account pool. Enable account rotation in Settings first, otherwise it has no effect.',
       },
       publishOptions: { none: 'No Filter (default)', latest: 'Latest', oneDay: 'Within 1 Day', threeDays: 'Within 3 Days', sevenDays: 'Within 7 Days', fourteenDays: 'Within 14 Days' },
       validation: {

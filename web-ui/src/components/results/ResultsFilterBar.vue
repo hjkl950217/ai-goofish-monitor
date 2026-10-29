@@ -22,7 +22,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Sparkles, Trash2 } from 'lucide-vue-next'
+import { Loader2, Sparkles, Trash2, SlidersHorizontal } from 'lucide-vue-next'
 
 interface FileOption {
   value: string
@@ -42,6 +42,11 @@ interface Props {
   isLoading: boolean
   isReady: boolean
   newCount?: number
+  minPrice?: number
+  maxPrice?: number
+  publishedDays?: number
+  shipRegion?: string
+  analysisStatus?: 'analyzed' | 'failed' | 'pending'
 }
 
 const props = defineProps<Props>()
@@ -89,7 +94,37 @@ const emit = defineEmits<{
   (e: 'manage-blacklist'): void
   (e: 'reanalyze-finished'): void
   (e: 'mark-all-seen'): void
+  (e: 'update:minPrice', value: number | undefined): void
+  (e: 'update:maxPrice', value: number | undefined): void
+  (e: 'update:publishedDays', value: number | undefined): void
+  (e: 'update:shipRegion', value: string): void
+  (e: 'update:analysisStatus', value: 'analyzed' | 'failed' | 'pending' | undefined): void
 }>()
+
+const showAdvanced = ref(false)
+
+function toNumberOrUndefined(value: string | number): number | undefined {
+  const text = String(value ?? '').trim()
+  if (!text) return undefined
+  const parsed = Number(text)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined
+}
+
+function clearAdvanced() {
+  emit('update:minPrice', undefined)
+  emit('update:maxPrice', undefined)
+  emit('update:publishedDays', undefined)
+  emit('update:shipRegion', '')
+  emit('update:analysisStatus', undefined)
+}
+
+const hasAdvanced = computed(() =>
+  props.minPrice !== undefined
+  || props.maxPrice !== undefined
+  || props.publishedDays !== undefined
+  || Boolean(props.shipRegion)
+  || props.analysisStatus !== undefined
+)
 
 const reanalyze = useReanalyze()
 const reanalyzeState = computed(() => reanalyze.status.value)
@@ -272,6 +307,18 @@ function handleToggleKeywordRecommended(value: boolean) {
             {{ t('results.filters.markAllSeen') }}
           </Button>
         </div>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          class="h-7 gap-1 text-xs"
+          :class="hasAdvanced ? 'text-primary' : 'text-slate-500'"
+          @click="showAdvanced = !showAdvanced"
+        >
+          <SlidersHorizontal class="h-3.5 w-3.5" />
+          {{ t('results.filters.moreFilters') }}
+          <span v-if="hasAdvanced" class="h-1.5 w-1.5 rounded-full bg-primary"></span>
+        </Button>
       </div>
 
       <div class="flex flex-wrap gap-2 lg:justify-end">
@@ -313,6 +360,87 @@ function handleToggleKeywordRecommended(value: boolean) {
           :disabled="props.isLoading || !props.selectedFile"
         >
           {{ t('results.filters.deleteResult') }}
+        </Button>
+      </div>
+    </div>
+
+    <div
+      v-if="showAdvanced"
+      class="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 lg:grid-cols-4"
+    >
+      <div class="space-y-1.5">
+        <Label class="text-xs font-semibold text-slate-500">
+          {{ t('results.filters.minPrice') }} / {{ t('results.filters.maxPrice') }}
+        </Label>
+        <div class="flex items-center gap-2">
+          <Input
+            :model-value="props.minPrice ?? ''"
+            type="number"
+            min="0"
+            :aria-label="t('results.filters.minPrice')"
+            :placeholder="t('results.filters.minPrice')"
+            @update:model-value="(v) => emit('update:minPrice', toNumberOrUndefined(v))"
+          />
+          <span class="text-slate-300">-</span>
+          <Input
+            :model-value="props.maxPrice ?? ''"
+            type="number"
+            min="0"
+            :aria-label="t('results.filters.maxPrice')"
+            :placeholder="t('results.filters.maxPrice')"
+            @update:model-value="(v) => emit('update:maxPrice', toNumberOrUndefined(v))"
+          />
+        </div>
+      </div>
+
+      <div class="space-y-1.5">
+        <Label class="text-xs font-semibold text-slate-500">{{ t('results.filters.publishedWithin') }}</Label>
+        <Select
+          :model-value="props.publishedDays ? String(props.publishedDays) : 'any'"
+          @update:model-value="(v) => emit('update:publishedDays', v === 'any' ? undefined : Number(v))"
+        >
+          <SelectTrigger class="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="any">{{ t('results.filters.publishedAny') }}</SelectItem>
+            <SelectItem value="3">{{ t('results.filters.publishedDays', { days: 3 }) }}</SelectItem>
+            <SelectItem value="7">{{ t('results.filters.publishedDays', { days: 7 }) }}</SelectItem>
+            <SelectItem value="30">{{ t('results.filters.publishedDays', { days: 30 }) }}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div class="space-y-1.5">
+        <Label class="text-xs font-semibold text-slate-500">{{ t('results.filters.shipRegion') }}</Label>
+        <Input
+          :model-value="props.shipRegion ?? ''"
+          :placeholder="t('results.filters.shipRegionPlaceholder')"
+          @update:model-value="(v) => emit('update:shipRegion', String(v ?? ''))"
+        />
+      </div>
+
+      <div class="space-y-1.5">
+        <Label class="text-xs font-semibold text-slate-500">{{ t('results.filters.analysisStatus') }}</Label>
+        <Select
+          :model-value="props.analysisStatus ?? 'any'"
+          @update:model-value="(v) => emit('update:analysisStatus', v === 'any' ? undefined : (v as 'analyzed' | 'failed' | 'pending'))"
+        >
+          <SelectTrigger class="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="any">{{ t('results.filters.analysisAny') }}</SelectItem>
+            <SelectItem value="analyzed">{{ t('results.filters.analysisAnalyzed') }}</SelectItem>
+            <SelectItem value="failed">{{ t('results.filters.analysisFailed') }}</SelectItem>
+            <SelectItem value="pending">{{ t('results.filters.analysisPending') }}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div class="sm:col-span-2 lg:col-span-4">
+        <Button variant="ghost" size="sm" class="h-7 text-xs text-slate-500" @click="clearAdvanced">
+          {{ t('results.filters.clearAdvanced') }}
         </Button>
       </div>
     </div>
