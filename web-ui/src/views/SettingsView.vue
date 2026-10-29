@@ -78,13 +78,18 @@ const isPromptLoading = ref(false)
 const isPromptSaving = ref(false)
 const promptError = ref<string | null>(null)
 
-// 内置模板用中文名显示，文件名仍是真实文件名
+// 内置模板用「中文名（文件名）」显示
 const promptLabels = computed<Record<string, string>>(() => ({
   'base_prompt.txt': t('settings.prompts.files.base'),
   'example_criteria.txt': t('settings.prompts.files.example'),
   'macbook_criteria.txt': t('settings.prompts.files.macbook'),
   'model_check_prompt.txt': t('settings.prompts.files.modelCheck'),
 }))
+
+function promptLabel(file: string): string {
+  const label = promptLabels.value[file]
+  return label ? `${label}（${file}）` : file
+}
 
 const rawConfig = ref('')
 const rawConfigPath = ref('')
@@ -680,7 +685,7 @@ watch(selectedPrompt, async (value) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem v-for="file in promptFiles" :key="file" :value="file">
-                    {{ promptLabels[file] || file }}
+                    {{ promptLabel(file) }}
                   </SelectItem>
                 </SelectContent>
               </Select>
