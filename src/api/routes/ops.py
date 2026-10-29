@@ -30,6 +30,8 @@ RUNTIME_INT_KEYS = {
     "TASK_FAILURE_THRESHOLD": 3,
     "TASK_FAILURE_PAUSE_SECONDS": 86400,
     "TASK_LOG_RETENTION_DAYS": 7,
+    "AI_LOG_RETENTION_DAYS": 1,
+    "AGM_TRACE_MAX_MB": 200,
 }
 
 
@@ -45,6 +47,8 @@ class OpsConfig(BaseModel):
     TASK_FAILURE_THRESHOLD: Optional[int] = None
     TASK_FAILURE_PAUSE_SECONDS: Optional[int] = None
     TASK_LOG_RETENTION_DAYS: Optional[int] = None
+    AI_LOG_RETENTION_DAYS: Optional[int] = None
+    AGM_TRACE_MAX_MB: Optional[int] = None
 
 
 def _current_trace_dir() -> str:

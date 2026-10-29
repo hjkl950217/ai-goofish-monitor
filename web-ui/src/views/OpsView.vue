@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { toast } from '@/components/ui/toast'
+import { confirmSave } from '@/lib/confirm'
 const { t } = useI18n()
 
 const traceEnabled = ref(false)
@@ -28,6 +29,8 @@ const runtime = reactive({
   TASK_FAILURE_THRESHOLD: 3,
   TASK_FAILURE_PAUSE_SECONDS: 86400,
   TASK_LOG_RETENTION_DAYS: 7,
+  AI_LOG_RETENTION_DAYS: 1,
+  AGM_TRACE_MAX_MB: 200,
 })
 
 async function loadConfig() {
@@ -45,6 +48,8 @@ async function loadConfig() {
     runtime.TASK_FAILURE_THRESHOLD = Number(cfg.TASK_FAILURE_THRESHOLD ?? 3)
     runtime.TASK_FAILURE_PAUSE_SECONDS = Number(cfg.TASK_FAILURE_PAUSE_SECONDS ?? 86400)
     runtime.TASK_LOG_RETENTION_DAYS = Number(cfg.TASK_LOG_RETENTION_DAYS ?? 7)
+    runtime.AI_LOG_RETENTION_DAYS = Number(cfg.AI_LOG_RETENTION_DAYS ?? 1)
+    runtime.AGM_TRACE_MAX_MB = Number(cfg.AGM_TRACE_MAX_MB ?? 200)
   } catch (e) {
     toast({ title: t('ops.loadFailed'), description: (e as Error).message, variant: 'destructive' })
   }
@@ -62,6 +67,7 @@ async function loadTraces() {
 }
 
 async function handleSave() {
+  if (!confirmSave()) return
   isSaving.value = true
   try {
     await saveOpsConfig({
@@ -79,7 +85,15 @@ async function handleSave() {
   }
 }
 
-function setNumber(key: 'TASK_FAILURE_THRESHOLD' | 'TASK_FAILURE_PAUSE_SECONDS' | 'TASK_LOG_RETENTION_DAYS', value: string | number) {
+function setNumber(
+  key:
+    | 'TASK_FAILURE_THRESHOLD'
+    | 'TASK_FAILURE_PAUSE_SECONDS'
+    | 'TASK_LOG_RETENTION_DAYS'
+    | 'AI_LOG_RETENTION_DAYS'
+    | 'AGM_TRACE_MAX_MB',
+  value: string | number,
+) {
   const parsed = Number(value)
   if (Number.isFinite(parsed) && parsed >= 0) {
     runtime[key] = Math.floor(parsed)
@@ -228,6 +242,30 @@ onMounted(() => {
             @update:model-value="(value) => setNumber('TASK_LOG_RETENTION_DAYS', value as string)"
           />
           <p class="text-xs text-slate-500">{{ t('ops.runtime.logRetentionHint') }}</p>
+        </div>
+
+        <div class="grid gap-2 rounded-lg border border-slate-200 px-3 py-2">
+          <Label for="ai-log-retention">{{ t('ops.runtime.aiLogRetention') }}</Label>
+          <Input
+            id="ai-log-retention"
+            type="number"
+            min="1"
+            :model-value="runtime.AI_LOG_RETENTION_DAYS"
+            @update:model-value="(value) => setNumber('AI_LOG_RETENTION_DAYS', value as string)"
+          />
+          <p class="text-xs text-slate-500">{{ t('ops.runtime.aiLogRetentionHint') }}</p>
+        </div>
+
+        <div class="grid gap-2 rounded-lg border border-slate-200 px-3 py-2">
+          <Label for="trace-max-mb">{{ t('ops.runtime.traceMaxMb') }}</Label>
+          <Input
+            id="trace-max-mb"
+            type="number"
+            min="1"
+            :model-value="runtime.AGM_TRACE_MAX_MB"
+            @update:model-value="(value) => setNumber('AGM_TRACE_MAX_MB', value as string)"
+          />
+          <p class="text-xs text-slate-500">{{ t('ops.runtime.traceMaxMbHint') }}</p>
         </div>
       </CardContent>
     </Card>

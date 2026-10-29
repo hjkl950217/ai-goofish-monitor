@@ -26,6 +26,7 @@ const enUS = {
     skipToContent: 'Skip to main content',
     save: 'Save',
     saving: 'Saving...',
+    confirmSave: 'Save and apply now?',
     refresh: 'Refresh',
     loading: 'Loading...',
     error: 'Something went wrong!',

@@ -13,6 +13,8 @@ export interface OpsConfig {
   TASK_FAILURE_THRESHOLD: number
   TASK_FAILURE_PAUSE_SECONDS: number
   TASK_LOG_RETENTION_DAYS: number
+  AI_LOG_RETENTION_DAYS: number
+  AGM_TRACE_MAX_MB: number
 }
 
 export interface TraceFile {

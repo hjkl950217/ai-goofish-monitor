@@ -26,6 +26,7 @@ const zhCN = {
     skipToContent: '跳转到主内容',
     save: '保存',
     saving: '保存中...',
+    confirmSave: '确定保存并立即生效吗？',
     refresh: '刷新',
     loading: '加载中...',
     error: '出错了!',

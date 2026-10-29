@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Task, TaskGenerateRequest } from '@/types/task.d.ts'
 import { Input } from '@/components/ui/input'
@@ -42,6 +42,58 @@ const accountStrategy = ref<'auto' | 'fixed' | 'rotate'>('auto')
 const selectedAccountStateFile = ref(AUTO_ACCOUNT_VALUE)
 const keywordRulesInput = ref('')
 const cronMode = ref<'preset' | 'custom'>('preset')
+const errors = reactive<Record<string, string>>({
+  task_name: '',
+  keyword: '',
+  price: '',
+  cron: '',
+})
+
+function isCronValid(value: string): boolean {
+  const text = value.trim()
+  if (!text) return true
+  if (text.startsWith('@')) return true
+  const parts = text.split(/\s+/)
+  return parts.length === 5 || parts.length === 6
+}
+
+function validateField(field: 'task_name' | 'keyword' | 'price' | 'cron') {
+  const value = form.value || {}
+  if (field === 'task_name') {
+    errors.task_name = String(value.task_name || '').trim()
+      ? ''
+      : t('tasks.form.validation.nameRequired')
+    return
+  }
+  if (field === 'keyword') {
+    errors.keyword = String(value.keyword || '').trim()
+      ? ''
+      : t('tasks.form.validation.keywordRequired')
+    return
+  }
+  if (field === 'price') {
+    const hasMin = value.min_price !== '' && value.min_price !== null && value.min_price !== undefined
+    const hasMax = value.max_price !== '' && value.max_price !== null && value.max_price !== undefined
+    const min = Number(value.min_price)
+    const max = Number(value.max_price)
+    errors.price = ''
+    if (hasMin && hasMax && Number.isFinite(min) && Number.isFinite(max) && min > max) {
+      errors.price = t('tasks.form.validation.priceRangeInvalid')
+    }
+    return
+  }
+  errors.cron = isCronValid(String(value.cron || ''))
+    ? ''
+    : t('tasks.form.validation.cronInvalid')
+}
+
+function validateAll(): boolean {
+  validateField('task_name')
+  validateField('keyword')
+  validateField('price')
+  validateField('cron')
+  return !Object.values(errors).some(Boolean)
+}
 
 // 常用 cron 预设选项
 const cronPresets = computed(() => [
@@ -198,6 +250,16 @@ function handleAccountStateFileChange(event: Event) {
 }
 
 function handleSubmit() {
+  if (!validateAll()) {
+    activeTab.value = 'basic'
+    toast({
+      title: t('tasks.form.validation.incomplete'),
+      description: t('tasks.form.validation.fixFields'),
+      variant: 'destructive',
+    })
+    return
+  }
+
   if (!form.value.task_name || !form.value.keyword) {
     activeTab.value = 'basic'
     toast({
@@ -288,12 +350,18 @@ function handleSubmit() {
         <div class="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
           <div class="grid gap-2 sm:col-span-2 sm:grid-cols-[7rem_1fr] sm:items-center">
             <Label for="task-name">{{ t('tasks.form.taskName') }} <span class="text-rose-500">*</span></Label>
-            <Input id="task-name" v-model="form.task_name" :placeholder="t('tasks.form.taskNamePlaceholder')" required />
+            <div class="space-y-1">
+              <Input id="task-name" v-model="form.task_name" :placeholder="t('tasks.form.taskNamePlaceholder')" required @blur="validateField('task_name')" />
+              <p v-if="errors.task_name" class="text-xs text-rose-600">{{ errors.task_name }}</p>
+            </div>
           </div>
 
           <div class="grid gap-2 sm:col-span-2 sm:grid-cols-[7rem_1fr] sm:items-center">
             <Label for="keyword">{{ t('tasks.form.keyword') }} <span class="text-rose-500">*</span></Label>
-            <Input id="keyword" v-model="form.keyword" :placeholder="t('tasks.form.keywordPlaceholder')" required />
+            <div class="space-y-1">
+              <Input id="keyword" v-model="form.keyword" :placeholder="t('tasks.form.keywordPlaceholder')" required @blur="validateField('keyword')" />
+              <p v-if="errors.keyword" class="text-xs text-rose-600">{{ errors.keyword }}</p>
+            </div>
           </div>
 
           <div class="grid gap-2 sm:col-span-2 sm:grid-cols-[7rem_1fr] sm:items-center">
@@ -311,10 +379,13 @@ function handleSubmit() {
 
           <div class="grid gap-2 sm:col-span-2 sm:grid-cols-[7rem_1fr] sm:items-center">
             <Label>{{ t('tasks.form.priceRange') }}</Label>
-            <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-              <Input type="number" v-model="form.min_price" :aria-label="t('tasks.form.minPrice')" :placeholder="t('tasks.form.minPrice')" />
-              <span>-</span>
-              <Input type="number" v-model="form.max_price" :aria-label="t('tasks.form.maxPrice')" :placeholder="t('tasks.form.maxPrice')" />
+            <div class="space-y-1">
+              <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <Input type="number" v-model="form.min_price" :aria-label="t('tasks.form.minPrice')" :placeholder="t('tasks.form.minPrice')" @blur="validateField('price')" />
+                <span>-</span>
+                <Input type="number" v-model="form.max_price" :aria-label="t('tasks.form.maxPrice')" :placeholder="t('tasks.form.maxPrice')" @blur="validateField('price')" />
+              </div>
+              <p v-if="errors.price" class="text-xs text-rose-600">{{ errors.price }}</p>
             </div>
           </div>
 
@@ -348,6 +419,7 @@ function handleSubmit() {
                     id="cron"
                     v-model="form.cron"
                     :placeholder="t('tasks.form.cronCustomPlaceholder')"
+                    @blur="validateField('cron')"
                   />
                   <p class="text-xs text-slate-500 mt-1">
                     {{ t('tasks.form.cronCustomHintLine1') }}
@@ -357,6 +429,7 @@ function handleSubmit() {
                   </p>
                 </TabsContent>
               </Tabs>
+              <p v-if="errors.cron" class="text-xs text-rose-600">{{ errors.cron }}</p>
               <p v-if="!form.cron" class="text-xs text-amber-600">
                 {{ t('tasks.form.cronManualHint') }}
               </p>

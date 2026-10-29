@@ -126,6 +126,11 @@ const zhCNExtra = {
         keywordRuleRequired: '关键词模式下至少需要一个关键词。',
         accountStrategyIncomplete: '账号策略不完整',
         fixedAccountRequired: '固定账号模式下必须选择一个账号。',
+        nameRequired: '任务名称不能为空。',
+        keywordRequired: '搜索关键词不能为空。',
+        priceRangeInvalid: '最低价不能高于最高价。',
+        cronInvalid: '定时规则应为 5 段或 6 段，或以 @ 开头的预设。',
+        fixFields: '请先修正表单里的提示。',
       },
     },
     region: {
@@ -346,6 +351,10 @@ const zhCNExtra = {
       failurePauseHint: '默认 86400 秒，即暂停一天。',
       logRetention: '任务日志保留天数',
       logRetentionHint: '启动时清理超过这个天数的 logs/*.log，改完要重启容器才生效。',
+      aiLogRetention: 'AI 请求日志保留天数',
+      aiLogRetentionHint: '每次 AI 调用都会落盘到 logs/ai，超过天数的在下次启动时清理。',
+      traceMaxMb: '采样目录体积上限（MB）',
+      traceMaxMbHint: '超过上限时自动删除最旧的采样数据。',
     },
     traces: {
       title: '已采集的数据',

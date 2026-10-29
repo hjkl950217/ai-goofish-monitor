@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { NotificationSettings, NotificationSettingsUpdate, NotificationTestResponse } from '@/api/settings'
+import { confirmSave } from '@/lib/confirm'
 
 type ChannelKey = 'ntfy' | 'pushplus' | 'bark' | 'gotify' | 'wecom' | 'telegram' | 'webhook'
 
@@ -200,6 +201,7 @@ function isChannelConfigured(channel: ChannelKey) {
 }
 
 async function handleSave() {
+  if (!confirmSave()) return
   await props.saveSettings(buildPayload())
 }
 

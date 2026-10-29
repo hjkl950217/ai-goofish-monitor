@@ -20,6 +20,7 @@ import NotificationSettingsPanel from '@/components/settings/NotificationSetting
 import RotationSettingsPanel from '@/components/settings/RotationSettingsPanel.vue'
 import { getRawConfig, saveRawConfig } from '@/api/configFile'
 import { validateJsonc } from '@/lib/jsonc'
+import { confirmSave } from '@/lib/confirm'
 const { t } = useI18n()
 
 function formatBytes(bytes?: number | null) {
@@ -103,6 +104,7 @@ async function handleSaveRawConfig() {
     rawConfigError.value = message
     return
   }
+  if (!confirmSave()) return
   isRawConfigSaving.value = true
   rawConfigError.value = ''
   try {
@@ -165,6 +167,7 @@ async function handleTestNotification(payload: {
 }
 
 async function handleSaveAi() {
+  if (!confirmSave()) return
   try {
     await saveAiSettings()
     notifySuccess(t('settings.ai.saved'))
@@ -174,6 +177,7 @@ async function handleSaveAi() {
 }
 
 async function handleSaveRotation() {
+  if (!confirmSave()) return
   try {
     await saveRotationSettings()
     notifySuccess(t('settings.rotation.saved'))
@@ -283,6 +287,7 @@ async function handleSavePrompt() {
     notifyError(t('settings.prompts.selectPromptFile'))
     return
   }
+  if (!confirmSave()) return
   isPromptSaving.value = true
   try {
     const res = await updatePrompt(selectedPrompt.value, promptContent.value)
@@ -701,7 +706,7 @@ watch(selectedPrompt, async (value) => {
             <CardTitle>{{ t('settings.configFile.title') }}</CardTitle>
             <CardDescription>{{ t('settings.configFile.description') }}</CardDescription>
           </CardHeader>
-          <CardContent class="space-y-3">
+          <div class="space-y-3 p-6 pt-0">
             <div
               v-if="rawConfigError"
               class="whitespace-pre-wrap rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
@@ -719,7 +724,7 @@ watch(selectedPrompt, async (value) => {
               :placeholder="t('settings.configFile.placeholder')"
             />
             <p class="text-xs text-gray-500">{{ t('settings.configFile.hint') }}</p>
-          </CardContent>
+          </div>
           <CardFooter class="flex gap-2">
             <Button variant="outline" :disabled="isRawConfigLoading" @click="loadRawConfig">
               {{ t('settings.configFile.reload') }}

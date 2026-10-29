@@ -126,6 +126,11 @@ const enUSExtra = {
         keywordRuleRequired: 'At least one keyword is required in keyword mode.',
         accountStrategyIncomplete: 'Incomplete account strategy',
         fixedAccountRequired: 'A fixed account must be selected in fixed mode.',
+        nameRequired: 'Task name is required.',
+        keywordRequired: 'Search keyword is required.',
+        priceRangeInvalid: 'Min price cannot be higher than max price.',
+        cronInvalid: 'Schedule must have 5 or 6 fields, or start with @.',
+        fixFields: 'Please fix the highlighted fields first.',
       },
     },
     region: {
@@ -346,6 +351,10 @@ const enUSExtra = {
       failurePauseHint: 'Defaults to 86400 seconds, i.e. one day.',
       logRetention: 'Task log retention (days)',
       logRetentionHint: 'Logs older than this are deleted at startup. Requires a container restart to take effect.',
+      aiLogRetention: 'AI Request Log Retention (days)',
+      aiLogRetentionHint: 'Each AI call is written to logs/ai; older files are cleaned at next startup.',
+      traceMaxMb: 'Trace Directory Size Limit (MB)',
+      traceMaxMbHint: 'Oldest trace data is deleted once the limit is exceeded.',
     },
     traces: {
       title: 'Captured Data',
