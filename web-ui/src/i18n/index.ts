@@ -1,31 +1,42 @@
 import { computed, watch } from 'vue'
 import { createI18n, useI18n } from 'vue-i18n'
-import zhCN from '@/i18n/messages/zh-CN'
-import enUS from '@/i18n/messages/en-US'
+import type { LocaleModule } from '@/i18n/types'
 
-export type AppLocale = 'zh-CN' | 'en-US'
+// 每个语言一个目录（locales/<code>/index.ts），新增语言只需新建目录
+const modules = import.meta.glob<{ default: LocaleModule }>('./locales/*/index.ts', { eager: true })
+
+export type AppLocale = string
+
+export const locales: LocaleModule[] = Object.values(modules).map((item) => item.default)
 
 const LOCALE_STORAGE_KEY = 'app_locale'
-const DEFAULT_LOCALE: AppLocale = 'zh-CN'
-const SUPPORTED_LOCALES: AppLocale[] = ['zh-CN', 'en-US']
+const DEFAULT_LOCALE = 'zh-CN'
+const SUPPORTED_LOCALES = locales.map((item) => item.code)
 
 function resolveInitialLocale(): AppLocale {
   const saved = localStorage.getItem(LOCALE_STORAGE_KEY)
-  if (saved && SUPPORTED_LOCALES.includes(saved as AppLocale)) {
-    return saved as AppLocale
+  if (saved && SUPPORTED_LOCALES.includes(saved)) {
+    return saved
   }
   const browserLocale = navigator.language.toLowerCase()
-  return browserLocale.startsWith('zh') ? 'zh-CN' : 'en-US'
+  const exact = SUPPORTED_LOCALES.find((code) => code.toLowerCase() === browserLocale)
+  if (exact) return exact
+  const prefix = SUPPORTED_LOCALES.find((code) =>
+    browserLocale.startsWith((code.split('-')[0] || '').toLowerCase()),
+  )
+  return prefix || DEFAULT_LOCALE
 }
+
+// messages 来自运行时收集，类型无法静态推导，这里放宽为 any
+const messages = Object.fromEntries(
+  locales.map((item) => [item.code, item.messages]),
+) as Record<string, any>
 
 export const i18n = createI18n({
   legacy: false,
   locale: resolveInitialLocale(),
   fallbackLocale: DEFAULT_LOCALE,
-  messages: {
-    'zh-CN': zhCN,
-    'en-US': enUS,
-  },
+  messages,
 })
 
 export function setLocale(locale: AppLocale) {
@@ -43,6 +54,7 @@ export function useLocale() {
   return {
     locale: currentLocale,
     toggleLocale,
+    locales,
     supportedLocales: SUPPORTED_LOCALES,
   }
 }

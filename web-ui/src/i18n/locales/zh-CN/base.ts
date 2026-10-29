@@ -1,5 +1,3 @@
-import zhCNExtra from '@/i18n/messages/zh-CN-extra'
-
 const zhCN = {
   app: {
     name: '闲鱼智能监控',
@@ -460,7 +458,6 @@ const zhCN = {
       promptContentFailed: '加载 Prompt 内容失败',
     },
   },
-  ...zhCNExtra,
 }
 
 export default zhCN

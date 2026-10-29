@@ -1,5 +1,3 @@
-import enUSExtra from '@/i18n/messages/en-US-extra'
-
 const enUS = {
   app: {
     name: 'Goofish Monitor',
@@ -460,7 +458,6 @@ const enUS = {
       promptContentFailed: 'Failed to load prompt content.',
     },
   },
-  ...enUSExtra,
 }
 
 export default enUS
