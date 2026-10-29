@@ -103,16 +103,16 @@
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-transparent;
+  @apply rounded-full bg-muted-foreground/5;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply rounded-full bg-muted-foreground/20 transition-colors hover:bg-muted-foreground/40;
+  @apply rounded-full bg-muted-foreground/35 transition-colors hover:bg-muted-foreground/55;
 }
 
 @media (prefers-reduced-motion: reduce) {

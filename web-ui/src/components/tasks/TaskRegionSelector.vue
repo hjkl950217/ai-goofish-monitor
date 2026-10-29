@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -68,13 +67,6 @@ function syncFromModel() {
 
 function emitCurrentPath() {
   emit('update:modelValue', currentPath.value)
-}
-
-function clearSelection() {
-  selectedProvince.value = ''
-  selectedCity.value = ''
-  selectedDistrict.value = ''
-  emit('update:modelValue', '')
 }
 
 function handleProvinceChange(value: string) {
@@ -158,15 +150,6 @@ watch(() => props.modelValue, syncFromModel, { immediate: true })
 
     <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
       <span>{{ t('tasks.region.helper') }}</span>
-    </div>
-
-    <div class="flex flex-wrap gap-2">
-      <Button type="button" variant="ghost" size="sm" @click="clearSelection">
-        {{ t('tasks.region.clear') }}
-      </Button>
-      <span v-if="currentPath" class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-        {{ t('tasks.region.current', { path: currentPath }) }}
-      </span>
     </div>
   </div>
 </template>

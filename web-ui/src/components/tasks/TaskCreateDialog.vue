@@ -126,19 +126,20 @@ watch(pollingError, (value) => {
     <DialogTrigger as-child>
       <Button>{{ t('tasks.createDialog.trigger') }}</Button>
     </DialogTrigger>
-    <DialogContent class="sm:max-w-[640px] max-h-[85vh] overflow-y-auto">
-      <DialogHeader>
+    <DialogContent class="flex max-h-[90vh] flex-col gap-3 overflow-hidden sm:max-w-[720px]">
+      <DialogHeader class="shrink-0 border-b border-slate-200/70 pb-3">
         <DialogTitle>{{ t('tasks.createDialog.title') }}</DialogTitle>
       </DialogHeader>
       <TaskForm
         mode="create"
         form-id="task-create-form"
+        class="min-h-0 flex-1"
         :account-options="accountOptions"
         :default-account="defaultAccountPath"
         :default-values="defaultValues"
         @submit="(data) => handleCreateTask(data as TaskGenerateRequest)"
       />
-      <DialogFooter>
+      <DialogFooter class="shrink-0 border-t border-slate-200/70 pt-3">
         <Button type="submit" form="task-create-form" :disabled="isSubmitting">
           {{ isSubmitting ? t('tasks.createDialog.submitting') : t('tasks.createDialog.submit') }}
         </Button>

@@ -36,6 +36,7 @@ const { t } = useI18n()
 
 const form = ref<any>({})
 const formSnapshot = ref('')
+const activeTab = ref<'basic' | 'prompt'>('basic')
 const currentSnapshot = () => JSON.stringify([form.value, keywordRulesInput.value])
 const accountStrategy = ref<'auto' | 'fixed' | 'rotate'>('auto')
 const selectedAccountStateFile = ref(AUTO_ACCOUNT_VALUE)
@@ -198,6 +199,7 @@ function handleAccountStateFileChange(event: Event) {
 
 function handleSubmit() {
   if (!form.value.task_name || !form.value.keyword) {
+    activeTab.value = 'basic'
     toast({
       title: t('tasks.form.validation.incomplete'),
       description: t('tasks.form.validation.nameAndKeywordRequired'),
@@ -208,6 +210,7 @@ function handleSubmit() {
 
   const decisionMode = form.value.decision_mode || 'ai'
   if (decisionMode === 'ai' && !String(form.value.description || '').trim()) {
+    activeTab.value = 'prompt'
     toast({
       title: t('tasks.form.validation.incomplete'),
       description: t('tasks.form.validation.aiDescriptionRequired'),
@@ -218,6 +221,7 @@ function handleSubmit() {
 
   const keywordRules = parseKeywordText(keywordRulesInput.value)
   if (decisionMode === 'keyword' && keywordRules.length === 0) {
+    activeTab.value = 'prompt'
     toast({
       title: t('tasks.form.validation.keywordRuleIncomplete'),
       description: t('tasks.form.validation.keywordRuleRequired'),
@@ -232,6 +236,7 @@ function handleSubmit() {
   if (currentAccountStrategy === 'fixed') {
     const currentAccountStateFile = selectedAccountStateFile.value || AUTO_ACCOUNT_VALUE
     if (currentAccountStateFile === AUTO_ACCOUNT_VALUE) {
+      activeTab.value = 'basic'
       toast({
         title: t('tasks.form.validation.accountStrategyIncomplete'),
         description: t('tasks.form.validation.fixedAccountRequired'),
@@ -251,7 +256,8 @@ function handleSubmit() {
       .map((part: string) => part.trim().replace(/(省|市)$/u, ''))
       .filter((part: string) => part.length > 0)
       .join('/')
-    submitData.region = normalized
+    // 省下拉里的「全国」代表不筛选，与后端约定一致
+    submitData.region = normalized === '全国' ? '' : normalized
   }
 
   if (submitData.new_publish_option === '__none__') {
@@ -271,187 +277,188 @@ function handleSubmit() {
 </script>
 
 <template>
-  <form :id="formId" @submit.prevent="handleSubmit">
-    <div class="grid gap-6 py-4">
-      <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label for="task-name" class="sm:text-right">{{ t('tasks.form.taskName') }} <span class="text-rose-500">*</span></Label>
-        <Input id="task-name" v-model="form.task_name" class="sm:col-span-3" :placeholder="t('tasks.form.taskNamePlaceholder')" required />
-      </div>
-      <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label for="keyword" class="sm:text-right">{{ t('tasks.form.keyword') }} <span class="text-rose-500">*</span></Label>
-        <Input id="keyword" v-model="form.keyword" class="sm:col-span-3" :placeholder="t('tasks.form.keywordPlaceholder')" required />
-      </div>
-      <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label class="sm:text-right">{{ t('tasks.form.decisionMode') }}</Label>
-        <div class="sm:col-span-3">
-          <Select v-model="form.decision_mode">
-            <SelectTrigger>
-              <SelectValue :placeholder="t('tasks.form.decisionModePlaceholder')" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ai">{{ t('tasks.form.aiMode') }}</SelectItem>
-              <SelectItem value="keyword">{{ t('tasks.form.keywordMode') }}</SelectItem>
-            </SelectContent>
-          </Select>
+  <form :id="formId" class="flex min-h-0 flex-1 flex-col" @submit.prevent="handleSubmit">
+    <Tabs v-model="activeTab" class="flex min-h-0 flex-1 flex-col">
+      <TabsList class="grid w-full shrink-0 grid-cols-2">
+        <TabsTrigger value="basic">{{ t('tasks.form.tabs.basic') }}</TabsTrigger>
+        <TabsTrigger value="prompt">{{ t('tasks.form.tabs.prompt') }}</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="basic" class="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
+        <div class="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+          <div class="grid gap-2 sm:col-span-2 sm:grid-cols-[7rem_1fr] sm:items-center">
+            <Label for="task-name">{{ t('tasks.form.taskName') }} <span class="text-rose-500">*</span></Label>
+            <Input id="task-name" v-model="form.task_name" :placeholder="t('tasks.form.taskNamePlaceholder')" required />
+          </div>
+
+          <div class="grid gap-2 sm:col-span-2 sm:grid-cols-[7rem_1fr] sm:items-center">
+            <Label for="keyword">{{ t('tasks.form.keyword') }} <span class="text-rose-500">*</span></Label>
+            <Input id="keyword" v-model="form.keyword" :placeholder="t('tasks.form.keywordPlaceholder')" required />
+          </div>
+
+          <div class="grid gap-2 sm:col-span-2 sm:grid-cols-[7rem_1fr] sm:items-center">
+            <Label>{{ t('tasks.form.decisionMode') }}</Label>
+            <Select v-model="form.decision_mode">
+              <SelectTrigger>
+                <SelectValue :placeholder="t('tasks.form.decisionModePlaceholder')" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ai">{{ t('tasks.form.aiMode') }}</SelectItem>
+                <SelectItem value="keyword">{{ t('tasks.form.keywordMode') }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div class="grid gap-2 sm:col-span-2 sm:grid-cols-[7rem_1fr] sm:items-center">
+            <Label>{{ t('tasks.form.priceRange') }}</Label>
+            <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+              <Input type="number" v-model="form.min_price" :aria-label="t('tasks.form.minPrice')" :placeholder="t('tasks.form.minPrice')" />
+              <span>-</span>
+              <Input type="number" v-model="form.max_price" :aria-label="t('tasks.form.maxPrice')" :placeholder="t('tasks.form.maxPrice')" />
+            </div>
+          </div>
+
+          <div class="grid gap-2 sm:col-span-2 sm:grid-cols-[7rem_1fr] sm:items-center">
+            <Label for="max-pages">{{ t('tasks.form.maxPages') }}</Label>
+            <Input id="max-pages" v-model.number="form.max_pages" type="number" />
+          </div>
+
+          <div class="grid gap-2 sm:col-span-2 sm:grid-cols-[7rem_1fr] sm:items-center">
+            <Label for="cron">{{ t('tasks.form.schedule') }}</Label>
+            <div class="space-y-2">
+              <Tabs v-model="cronMode" class="w-full">
+                <TabsList class="grid w-full grid-cols-2">
+                  <TabsTrigger value="preset">{{ t('tasks.form.cronPresetTab') }}</TabsTrigger>
+                  <TabsTrigger value="custom">{{ t('tasks.form.cronCustomTab') }}</TabsTrigger>
+                </TabsList>
+                <TabsContent value="preset">
+                  <Select v-model="presetCronValue">
+                    <SelectTrigger>
+                      <SelectValue :placeholder="t('tasks.form.cronPlaceholder')" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="preset in cronPresets" :key="preset.value" :value="preset.value">
+                        {{ preset.label }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </TabsContent>
+                <TabsContent value="custom">
+                  <Input
+                    id="cron"
+                    v-model="form.cron"
+                    :placeholder="t('tasks.form.cronCustomPlaceholder')"
+                  />
+                  <p class="text-xs text-slate-500 mt-1">
+                    {{ t('tasks.form.cronCustomHintLine1') }}
+                  </p>
+                  <p class="text-xs text-slate-500">
+                    {{ t('tasks.form.cronCustomHintLine2') }}
+                  </p>
+                </TabsContent>
+              </Tabs>
+              <p v-if="!form.cron" class="text-xs text-amber-600">
+                {{ t('tasks.form.cronManualHint') }}
+              </p>
+            </div>
+          </div>
+
+          <div class="grid gap-2 sm:col-span-2 sm:grid-cols-[7rem_1fr] sm:items-center">
+            <Label>{{ t('tasks.form.accountStrategyLabel') }}</Label>
+            <div class="space-y-2">
+              <select
+                :value="accountStrategy"
+                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                @change="handleAccountStrategyChange"
+              >
+                <option v-for="option in accountStrategyOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+              <p class="text-xs text-slate-500">
+                {{ accountStrategyOptions.find((option) => option.value === accountStrategy)?.description }}
+              </p>
+            </div>
+          </div>
+
+          <div v-if="accountStrategy === 'fixed'" class="grid gap-2 sm:col-span-2 sm:grid-cols-[7rem_1fr] sm:items-center">
+            <Label>{{ t('tasks.form.fixedAccount') }}</Label>
+            <select
+              :value="selectedAccountStateFile"
+              class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              @change="handleAccountStateFileChange"
+            >
+              <option :value="AUTO_ACCOUNT_VALUE">{{ t('tasks.form.selectAccount') }}</option>
+              <option v-for="account in accountOptions || []" :key="account.path" :value="account.path">
+                {{ account.name }}
+              </option>
+            </select>
+          </div>
+
+          <label
+            v-if="form.decision_mode === 'ai'"
+            class="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-white/60 px-3 py-2.5"
+            :title="t('tasks.form.analyzeImagesHint')"
+          >
+            <span class="text-sm font-medium text-slate-700">{{ t('tasks.form.analyzeImages') }}</span>
+            <Switch v-model="form.analyze_images" />
+          </label>
+          <label class="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-white/60 px-3 py-2.5">
+            <span class="text-sm font-medium text-slate-700">{{ t('tasks.form.personalOnly') }}</span>
+            <Switch v-model="form.personal_only" />
+          </label>
+          <label class="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-white/60 px-3 py-2.5">
+            <span class="text-sm font-medium text-slate-700">{{ t('tasks.form.freeShipping') }}</span>
+            <Switch v-model="form.free_shipping" />
+          </label>
+
+          <div class="grid gap-2 sm:col-span-2 sm:grid-cols-[7rem_1fr] sm:items-center">
+            <Label>{{ t('tasks.form.newPublish') }}</Label>
+            <Select v-model="form.new_publish_option">
+              <SelectTrigger>
+                <SelectValue :placeholder="t('tasks.form.publishOptions.none')" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">{{ t('tasks.form.publishOptions.none') }}</SelectItem>
+                <SelectItem value="最新">{{ t('tasks.form.publishOptions.latest') }}</SelectItem>
+                <SelectItem value="1天内">{{ t('tasks.form.publishOptions.oneDay') }}</SelectItem>
+                <SelectItem value="3天内">{{ t('tasks.form.publishOptions.threeDays') }}</SelectItem>
+                <SelectItem value="7天内">{{ t('tasks.form.publishOptions.sevenDays') }}</SelectItem>
+                <SelectItem value="14天内">{{ t('tasks.form.publishOptions.fourteenDays') }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div class="grid gap-2 sm:col-span-2 sm:grid-cols-[7rem_1fr] sm:items-center">
+            <Label>{{ t('tasks.form.region') }}</Label>
+            <div class="space-y-1">
+              <TaskRegionSelector v-model="form.region" />
+              <p class="text-xs text-slate-500">{{ t('tasks.form.regionHint') }}</p>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label for="description" class="sm:text-right">{{ t('tasks.form.description') }} <span v-if="form.decision_mode !== 'keyword'" class="text-rose-500">*</span></Label>
-        <div class="space-y-1 sm:col-span-3">
+      </TabsContent>
+
+      <TabsContent value="prompt" class="mt-4 flex min-h-0 flex-1 flex-col">
+        <template v-if="form.decision_mode === 'keyword'">
+          <p class="mb-2 text-xs text-slate-500">{{ t('tasks.form.keywordRulesHint') }}</p>
+          <Textarea
+            v-model="keywordRulesInput"
+            class="min-h-[200px] flex-1"
+            :placeholder="t('tasks.form.keywordRulesPlaceholder')"
+          />
+        </template>
+        <template v-else>
+          <p class="mb-2 text-xs text-slate-500">{{ t('tasks.form.promptScopeHint') }}</p>
           <Textarea
             id="description"
             v-model="form.description"
+            class="min-h-[200px] flex-1"
             :placeholder="t('tasks.form.descriptionPlaceholder')"
           />
-          <p v-if="form.decision_mode === 'keyword'" class="text-xs text-gray-500">
-            {{ t('tasks.form.keywordDescriptionHint') }}
-          </p>
-        </div>
-      </div>
-      <div v-if="form.decision_mode === 'ai'" class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label for="analyze-images" class="sm:text-right">{{ t('tasks.form.analyzeImages') }}</Label>
-        <div class="space-y-1 sm:col-span-3">
-          <Switch id="analyze-images" v-model="form.analyze_images" />
-          <p class="text-xs text-gray-500">
-            {{ t('tasks.form.analyzeImagesHint') }}
-          </p>
-        </div>
-      </div>
-
-      <div v-if="form.decision_mode === 'keyword'" class="grid gap-2 sm:grid-cols-4 sm:gap-4">
-        <Label class="pt-1 sm:pt-2 sm:text-right">{{ t('tasks.form.keywordRules') }}</Label>
-        <div class="space-y-2 sm:col-span-3">
-          <p class="text-xs text-gray-500">
-            {{ t('tasks.form.keywordRulesHint') }}
-          </p>
-          <Textarea
-            v-model="keywordRulesInput"
-            class="min-h-[120px]"
-            :placeholder="t('tasks.form.keywordRulesPlaceholder')"
-          />
-        </div>
-      </div>
-
-      <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label class="sm:text-right">{{ t('tasks.form.priceRange') }}</Label>
-        <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:col-span-3">
-          <Input type="number" v-model="form.min_price" :aria-label="t('tasks.form.minPrice')" :placeholder="t('tasks.form.minPrice')" />
-          <span>-</span>
-          <Input type="number" v-model="form.max_price" :aria-label="t('tasks.form.maxPrice')" :placeholder="t('tasks.form.maxPrice')" />
-        </div>
-      </div>
-      <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label for="max-pages" class="sm:text-right">{{ t('tasks.form.maxPages') }}</Label>
-        <Input id="max-pages" v-model.number="form.max_pages" type="number" class="sm:col-span-3" />
-      </div>
-      <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label for="cron" class="sm:text-right">{{ t('tasks.form.schedule') }}</Label>
-        <div class="space-y-2 sm:col-span-3">
-          <Tabs v-model="cronMode" class="w-full">
-            <TabsList class="grid w-full grid-cols-2">
-              <TabsTrigger value="preset">{{ t('tasks.form.cronPresetTab') }}</TabsTrigger>
-              <TabsTrigger value="custom">{{ t('tasks.form.cronCustomTab') }}</TabsTrigger>
-            </TabsList>
-            <TabsContent value="preset">
-              <Select v-model="presetCronValue">
-                <SelectTrigger>
-                  <SelectValue :placeholder="t('tasks.form.cronPlaceholder')" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="preset in cronPresets" :key="preset.value" :value="preset.value">
-                    {{ preset.label }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </TabsContent>
-            <TabsContent value="custom">
-              <Input
-                id="cron"
-                v-model="form.cron"
-                :placeholder="t('tasks.form.cronCustomPlaceholder')"
-              />
-              <p class="text-xs text-gray-500 mt-1">
-                {{ t('tasks.form.cronCustomHintLine1') }}
-              </p>
-              <p class="text-xs text-gray-500">
-                {{ t('tasks.form.cronCustomHintLine2') }}
-              </p>
-            </TabsContent>
-          </Tabs>
-          <p v-if="!form.cron" class="text-xs text-amber-600">
-            {{ t('tasks.form.cronManualHint') }}
-          </p>
-        </div>
-      </div>
-      <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label class="sm:text-right">{{ t('tasks.form.accountStrategyLabel') }}</Label>
-        <div class="space-y-2 sm:col-span-3">
-          <select
-            :value="accountStrategy"
-            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-            @change="handleAccountStrategyChange"
-          >
-            <option v-for="option in accountStrategyOptions" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
-          <p class="text-xs text-gray-500">
-            {{ accountStrategyOptions.find((option) => option.value === accountStrategy)?.description }}
-          </p>
-        </div>
-      </div>
-      <div v-if="accountStrategy === 'fixed'" class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label class="sm:text-right">{{ t('tasks.form.fixedAccount') }}</Label>
-        <div class="sm:col-span-3">
-          <select
-            :value="selectedAccountStateFile"
-            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-            @change="handleAccountStateFileChange"
-          >
-            <option :value="AUTO_ACCOUNT_VALUE">{{ t('tasks.form.selectAccount') }}</option>
-            <option v-for="account in accountOptions || []" :key="account.path" :value="account.path">
-              {{ account.name }}
-            </option>
-          </select>
-        </div>
-      </div>
-      <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label for="personal-only" class="sm:text-right">{{ t('tasks.form.personalOnly') }}</Label>
-        <div class="sm:col-span-3">
-          <Switch id="personal-only" v-model="form.personal_only" />
-        </div>
-      </div>
-      <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label for="free-shipping" class="sm:text-right">{{ t('tasks.form.freeShipping') }}</Label>
-        <div class="sm:col-span-3">
-          <Switch id="free-shipping" v-model="form.free_shipping" />
-        </div>
-      </div>
-      <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label class="sm:text-right">{{ t('tasks.form.newPublish') }}</Label>
-        <div class="sm:col-span-3">
-          <Select v-model="form.new_publish_option">
-            <SelectTrigger>
-              <SelectValue :placeholder="t('tasks.form.publishOptions.none')" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">{{ t('tasks.form.publishOptions.none') }}</SelectItem>
-              <SelectItem value="最新">{{ t('tasks.form.publishOptions.latest') }}</SelectItem>
-              <SelectItem value="1天内">{{ t('tasks.form.publishOptions.oneDay') }}</SelectItem>
-              <SelectItem value="3天内">{{ t('tasks.form.publishOptions.threeDays') }}</SelectItem>
-              <SelectItem value="7天内">{{ t('tasks.form.publishOptions.sevenDays') }}</SelectItem>
-              <SelectItem value="14天内">{{ t('tasks.form.publishOptions.fourteenDays') }}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      <div class="grid gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-        <Label class="sm:text-right">{{ t('tasks.form.region') }}</Label>
-        <div class="space-y-1 sm:col-span-3">
-          <TaskRegionSelector v-model="form.region" />
-          <p class="text-xs text-gray-500">{{ t('tasks.form.regionHint') }}</p>
-        </div>
-      </div>
-    </div>
+          <p class="mt-2 text-xs text-slate-500">{{ t('tasks.form.descriptionHint') }}</p>
+        </template>
+      </TabsContent>
+    </Tabs>
   </form>
 </template>
