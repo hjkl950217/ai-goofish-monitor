@@ -12,24 +12,24 @@ const props = defineProps<{
 const { t } = useI18n()
 
 const summaryCards = computed(() => {
-  if (!props.insights) return []
-  const market = props.insights.market_summary
-  const history = props.insights.history_summary
+  // 数据未到时也渲染三张卡，保持面板高度不变，避免切换结果集时下方内容上下跳
+  const market = props.insights?.market_summary
+  const history = props.insights?.history_summary
   return [
     {
       label: t('results.insights.currentAvg'),
-      value: market.avg_price ? `¥${market.avg_price}` : '—',
-      hint: t('results.insights.sampleCount', { count: market.sample_count || 0 }),
+      value: market?.avg_price ? `¥${market.avg_price}` : '—',
+      hint: t('results.insights.sampleCount', { count: market?.sample_count || 0 }),
     },
     {
       label: t('results.insights.historyAvg'),
-      value: history.avg_price ? `¥${history.avg_price}` : '—',
-      hint: t('results.insights.uniqueItems', { count: history.unique_items || 0 }),
+      value: history?.avg_price ? `¥${history.avg_price}` : '—',
+      hint: t('results.insights.uniqueItems', { count: history?.unique_items || 0 }),
     },
     {
       label: t('results.insights.currentMin'),
-      value: market.min_price ? `¥${market.min_price}` : '—',
-      hint: market.max_price
+      value: market?.min_price ? `¥${market.min_price}` : '—',
+      hint: market?.max_price
         ? t('results.insights.highestPrice', { price: market.max_price })
         : t('results.insights.noRange'),
     },

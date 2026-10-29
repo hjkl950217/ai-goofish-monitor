@@ -86,7 +86,8 @@ const areaPath = computed(() => {
       </div>
     </div>
 
-    <div v-if="validPoints.length < 2" class="rounded-2xl border border-dashed border-slate-200 bg-white/70 px-4 py-10 text-center text-sm text-slate-500">
+    <!-- 高度与下面的 SVG 一致，避免数据到达前后整块面板变高变矮 -->
+    <div v-if="validPoints.length < 2" class="flex h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/70 px-4 text-center text-sm text-slate-500">
       {{ t('results.chart.notEnoughData') }}
     </div>
 
