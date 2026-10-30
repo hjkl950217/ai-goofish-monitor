@@ -15,6 +15,7 @@ import { toast } from '@/components/ui/toast/use-toast'
 import { useFavorites } from '@/composables/useFavorites'
 import { ExternalLink, TrendingUp, TrendingDown, Info, User, Clock, CheckCircle2, XCircle, AlertCircle, EyeOff, Eye, MapPin, CalendarDays, Heart, Tag, RefreshCw, Loader2 } from 'lucide-vue-next'
 import { formatLocalDateTime } from '@/i18n'
+import LazyImage from './LazyImage.vue'
 
 interface Props {
   item: ResultItem
@@ -235,13 +236,11 @@ async function onRefresh() {
     <!-- Image Header -->
     <div class="relative aspect-[4/3] overflow-hidden">
       <div class="absolute inset-0 bg-slate-200 animate-pulse" v-if="!imageUrl"></div>
-      <img
+      <LazyImage
         v-else
         :src="imageUrl"
         :alt="info.title"
-        class="h-full w-full cursor-zoom-in object-cover transition-transform duration-500 group-hover:scale-110"
-        loading="lazy"
-        decoding="async"
+        class="h-full w-full cursor-zoom-in object-cover transition-[transform,opacity] duration-500 group-hover:scale-110"
         @click="openDetail"
       />
       <!-- Hidden overlay -->
