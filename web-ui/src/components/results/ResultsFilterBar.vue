@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from '@/components/ui/toast'
 import {
@@ -18,11 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Sparkles, Trash2, SlidersHorizontal } from 'lucide-vue-next'
+import { Loader2, Sparkles, Trash2 } from 'lucide-vue-next'
 
 interface FileOption {
   value: string
@@ -34,11 +33,6 @@ interface Props {
   files: string[]
   fileOptions?: FileOption[]
   selectedFile: string | null
-  aiRecommendedOnly: boolean
-  keywordRecommendedOnly: boolean
-  includeHidden: boolean
-  sortBy: 'crawl_time' | 'publish_time' | 'price' | 'keyword_hit_count' | 'score'
-  sortOrder: 'asc' | 'desc'
   isLoading: boolean
   isReady: boolean
   minPrice?: number
@@ -82,11 +76,6 @@ const isSelectDisabled = computed(() => !props.isReady || options.value.length =
 
 const emit = defineEmits<{
   (e: 'update:selectedFile', value: string): void
-  (e: 'update:aiRecommendedOnly', value: boolean): void
-  (e: 'update:keywordRecommendedOnly', value: boolean): void
-  (e: 'update:includeHidden', value: boolean): void
-  (e: 'update:sortBy', value: 'crawl_time' | 'publish_time' | 'price' | 'keyword_hit_count' | 'score'): void
-  (e: 'update:sortOrder', value: 'asc' | 'desc'): void
   (e: 'refresh'): void
   (e: 'export'): void
   (e: 'delete'): void
@@ -99,7 +88,20 @@ const emit = defineEmits<{
   (e: 'update:analysisStatus', value: 'analyzed' | 'failed' | 'pending' | undefined): void
 }>()
 
-const showAdvanced = ref(false)
+// 接口快时不要把按钮闪成禁用态，加载超过 200ms 才置灰
+const isBusy = ref(false)
+let busyTimer: ReturnType<typeof setTimeout> | undefined
+watch(() => props.isLoading, (loading) => {
+  clearTimeout(busyTimer)
+  if (!loading) {
+    isBusy.value = false
+    return
+  }
+  busyTimer = setTimeout(() => {
+    isBusy.value = true
+  }, 200)
+}, { immediate: true })
+onUnmounted(() => clearTimeout(busyTimer))
 
 function toNumberOrUndefined(value: string | number): number | undefined {
   const text = String(value ?? '').trim()
@@ -115,14 +117,6 @@ function clearAdvanced() {
   emit('update:shipRegion', '')
   emit('update:analysisStatus', undefined)
 }
-
-const hasAdvanced = computed(() =>
-  props.minPrice !== undefined
-  || props.maxPrice !== undefined
-  || props.publishedDays !== undefined
-  || Boolean(props.shipRegion)
-  || props.analysisStatus !== undefined
-)
 
 const reanalyze = useReanalyze()
 const reanalyzeState = computed(() => reanalyze.status.value)
@@ -194,169 +188,31 @@ async function handleCancelReanalyze() {
     })
   }
 }
-
-function handleToggleAiRecommended(value: boolean) {
-  emit('update:aiRecommendedOnly', value)
-  if (value) {
-    emit('update:keywordRecommendedOnly', false)
-  }
-}
-
-function handleToggleKeywordRecommended(value: boolean) {
-  emit('update:keywordRecommendedOnly', value)
-  if (value) {
-    emit('update:aiRecommendedOnly', false)
-  }
-}
 </script>
 
 <template>
-  <div class="app-surface mb-6 p-4 sm:p-5">
-    <div class="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
-      <div class="space-y-2">
-        <Label class="text-xs font-semibold text-slate-500">{{ t('results.title') }}</Label>
-        <Select
-          :model-value="props.selectedFile || undefined"
-          @update:model-value="(value) => emit('update:selectedFile', value as string)"
-        >
-          <SelectTrigger class="w-full" :disabled="isSelectDisabled">
-            <span :class="labelClass">
-              {{ selectedLabel }}
-            </span>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem v-for="option in options" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div class="space-y-2">
-        <Label class="text-xs font-semibold text-slate-500">{{ t('results.filters.sortBy') }}</Label>
-        <Select
-          :model-value="props.sortBy"
-          @update:model-value="(value) => emit('update:sortBy', value as any)"
-        >
-          <SelectTrigger class="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="crawl_time">{{ t('results.filters.sortByCrawlTime') }}</SelectItem>
-            <SelectItem value="publish_time">{{ t('results.filters.sortByPublishTime') }}</SelectItem>
-            <SelectItem value="price">{{ t('results.filters.sortByPrice') }}</SelectItem>
-            <SelectItem value="keyword_hit_count">{{ t('results.filters.sortByKeywordHits') }}</SelectItem>
-            <SelectItem value="score">{{ t('results.filters.sortByScore') }}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div class="space-y-2">
-        <Label class="text-xs font-semibold text-slate-500">{{ t('results.filters.asc') }} / {{ t('results.filters.desc') }}</Label>
-        <Select
-          :model-value="props.sortOrder"
-          @update:model-value="(value) => emit('update:sortOrder', value as any)"
-        >
-          <SelectTrigger class="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="desc">{{ t('results.filters.desc') }}</SelectItem>
-            <SelectItem value="asc">{{ t('results.filters.asc') }}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+  <div class="app-surface mb-3 p-4 sm:p-5">
+    <!-- 结果集下拉只在窄屏保留，宽屏由左侧任务列表切换 -->
+    <div class="mb-4 space-y-2 lg:hidden">
+      <Label class="text-xs font-semibold text-slate-500">{{ t('results.title') }}</Label>
+      <Select
+        :model-value="props.selectedFile || undefined"
+        @update:model-value="(value) => emit('update:selectedFile', value as string)"
+      >
+        <SelectTrigger class="w-full" :disabled="isSelectDisabled">
+          <span :class="labelClass">
+            {{ selectedLabel }}
+          </span>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem v-for="option in options" :key="option.value" :value="option.value">
+            {{ option.label }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
     </div>
 
-    <div class="mt-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div class="flex items-center space-x-2">
-          <Checkbox
-            id="ai-recommended-only"
-            :model-value="props.aiRecommendedOnly"
-            @update:modelValue="(value) => handleToggleAiRecommended(value === true)"
-          />
-          <Label for="ai-recommended-only" class="cursor-pointer">{{ t('results.filters.aiOnly') }}</Label>
-        </div>
-
-        <div class="flex items-center space-x-2">
-          <Checkbox
-            id="keyword-recommended-only"
-            :model-value="props.keywordRecommendedOnly"
-            @update:modelValue="(value) => handleToggleKeywordRecommended(value === true)"
-          />
-          <Label for="keyword-recommended-only" class="cursor-pointer">{{ t('results.filters.keywordOnly') }}</Label>
-        </div>
-
-        <div class="flex items-center space-x-2">
-          <Checkbox
-            id="include-hidden"
-            :model-value="props.includeHidden"
-            @update:modelValue="(value) => emit('update:includeHidden', value === true)"
-          />
-          <Label for="include-hidden" class="cursor-pointer">{{ t('results.filters.includeHidden') }}</Label>
-        </div>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          class="h-7 gap-1 text-xs"
-          :class="hasAdvanced ? 'text-primary' : 'text-slate-500'"
-          @click="showAdvanced = !showAdvanced"
-        >
-          <SlidersHorizontal class="h-3.5 w-3.5" />
-          {{ t('results.filters.moreFilters') }}
-          <span v-if="hasAdvanced" class="h-1.5 w-1.5 rounded-full bg-primary"></span>
-        </Button>
-      </div>
-
-      <div class="flex flex-wrap gap-2 lg:justify-end">
-        <Button @click="emit('refresh')" :disabled="props.isLoading">
-          {{ t('common.refresh') }}
-        </Button>
-
-        <Button
-          variant="outline"
-          @click="isReanalyzeOpen = true; reanalyze.fetchImageCache()"
-          :disabled="reanalyzeState.running"
-        >
-          <Loader2 v-if="reanalyzeState.running" class="mr-1 h-4 w-4 animate-spin" />
-          <Sparkles v-else class="mr-1 h-4 w-4" />
-          {{ reanalyzeState.running
-            ? t('results.reanalyze.running', { done: reanalyzeState.done, total: reanalyzeState.total })
-            : t('results.reanalyze.action') }}
-        </Button>
-
-        <Button
-          variant="outline"
-          @click="emit('manage-blacklist')"
-          :disabled="props.isLoading || !props.selectedFile"
-        >
-          {{ t('results.filters.manageBlacklist') }}
-        </Button>
-
-        <Button
-          variant="outline"
-          @click="emit('export')"
-          :disabled="props.isLoading || !props.selectedFile"
-        >
-          {{ t('results.filters.exportCsv') }}
-        </Button>
-
-        <Button
-          variant="destructive"
-          @click="emit('delete')"
-          :disabled="props.isLoading || !props.selectedFile"
-        >
-          {{ t('results.filters.deleteResult') }}
-        </Button>
-      </div>
-    </div>
-
-    <div
-      v-if="showAdvanced"
-      class="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 lg:grid-cols-4"
-    >
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <div class="space-y-1.5">
         <Label class="text-xs font-semibold text-slate-500">
           {{ t('results.filters.minPrice') }} / {{ t('results.filters.maxPrice') }}
@@ -426,10 +282,52 @@ function handleToggleKeywordRecommended(value: boolean) {
           </SelectContent>
         </Select>
       </div>
+    </div>
 
-      <div class="sm:col-span-2 lg:col-span-4">
-        <Button variant="ghost" size="sm" class="h-7 text-xs text-slate-500" @click="clearAdvanced">
-          {{ t('results.filters.clearAdvanced') }}
+    <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+      <Button variant="ghost" size="sm" class="h-7 text-xs text-slate-500" @click="clearAdvanced">
+        {{ t('results.filters.clearAdvanced') }}
+      </Button>
+
+      <div class="flex flex-wrap gap-2 justify-end">
+        <Button @click="emit('refresh')" :disabled="isBusy">
+          {{ t('common.refresh') }}
+        </Button>
+
+        <Button
+          variant="outline"
+          @click="isReanalyzeOpen = true; reanalyze.fetchImageCache()"
+          :disabled="reanalyzeState.running"
+        >
+          <Loader2 v-if="reanalyzeState.running" class="mr-1 h-4 w-4 animate-spin" />
+          <Sparkles v-else class="mr-1 h-4 w-4" />
+          {{ reanalyzeState.running
+            ? t('results.reanalyze.running', { done: reanalyzeState.done, total: reanalyzeState.total })
+            : t('results.reanalyze.action') }}
+        </Button>
+
+        <Button
+          variant="outline"
+          @click="emit('manage-blacklist')"
+          :disabled="isBusy || !props.selectedFile"
+        >
+          {{ t('results.filters.manageBlacklist') }}
+        </Button>
+
+        <Button
+          variant="outline"
+          @click="emit('export')"
+          :disabled="isBusy || !props.selectedFile"
+        >
+          {{ t('results.filters.exportCsv') }}
+        </Button>
+
+        <Button
+          variant="destructive"
+          @click="emit('delete')"
+          :disabled="isBusy || !props.selectedFile"
+        >
+          {{ t('results.filters.deleteResult') }}
         </Button>
       </div>
     </div>

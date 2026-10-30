@@ -44,7 +44,7 @@ const routes = [
         path: 'results',
         name: 'Results',
         component: () => import('@/views/ResultsView.vue'),
-        meta: { titleKey: 'routes.results', requiresAuth: true },
+        meta: { titleKey: 'routes.results', requiresAuth: true, wide: true },
       },
       {
         path: 'logs',

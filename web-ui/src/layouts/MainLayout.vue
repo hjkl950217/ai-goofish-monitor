@@ -1,11 +1,17 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import TheHeader from '@/components/layout/TheHeader.vue'
 import TheSidebar from '@/components/layout/TheSidebar.vue'
 import { useMobileNav } from '@/composables/useMobileNav'
 
 const { isMobileNavOpen, closeMobileNav } = useMobileNav()
 const { t } = useI18n()
+const route = useRoute()
+
+// 结果页要铺满宽屏，其余页面维持原来的居中宽度，避免表单被拉成整屏长条
+const isWide = computed(() => route.meta.wide === true)
 </script>
 
 <template>
@@ -48,8 +54,8 @@ const { t } = useI18n()
       </aside>
 
       <!-- Main Content Area -->
-      <main id="main-content" tabindex="-1" class="flex-grow overflow-x-hidden p-4 focus:outline-none md:p-8">
-        <div class="max-w-7xl mx-auto animate-fade-in">
+      <main id="main-content" tabindex="-1" class="flex-grow overflow-x-clip px-2 py-4 focus:outline-none md:py-6">
+        <div class="animate-fade-in" :class="{ 'mx-auto max-w-7xl': !isWide }">
           <RouterView v-slot="{ Component }">
             <transition name="page" mode="out-in">
               <component :is="Component" />

@@ -138,7 +138,24 @@ const enUS = {
   },
   results: {
     title: 'Results',
-      openLocal: 'Open local detail',
+    taskList: {
+      title: 'Tasks',
+      empty: 'No task results yet',
+    },
+    sortRail: {
+      title: 'Sort',
+      price: 'Price',
+      hits: 'Hits',
+      score: 'Value',
+      publish: 'Publish',
+      crawl: 'Crawl',
+      hint: 'Click the active field to flip ascending / descending',
+      filterTitle: 'Filter',
+      modeDefault: 'Default',
+      modeAi: 'AI',
+      modeHidden: 'Hidden',
+      modeAll: 'All',
+    },
   reanalyze: {
       action: 'Re-analyze',
       title: 'Re-run AI analysis',
@@ -297,6 +314,7 @@ const enUS = {
   },
 
   itemDetail: {
+  openLocal: 'Open local detail',
   back: 'Back to results',
   openOnXianyu: 'Open on Xianyu',
   images: 'Product images',

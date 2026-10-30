@@ -165,6 +165,7 @@ def _load_filtered_records_from_conn(
     published_days: int | None = None,
     ship_region: str | None = None,
     analysis_status: str | None = None,
+    hidden_only: bool = False,
 ) -> list[dict]:
     where_clause, params = _build_query_conditions(
         filename=filename,
@@ -195,7 +196,10 @@ def _load_filtered_records_from_conn(
         record["_current_price"] = row["price"]
         record["_last_checked_at"] = row["last_checked_at"]
         decorated = _decorate_record_visibility(record, row["status"], blacklist_keywords)
-        if include_hidden or _is_record_visible(decorated):
+        if hidden_only:
+            if not _is_record_visible(decorated):
+                records.append(decorated)
+        elif include_hidden or _is_record_visible(decorated):
             records.append(decorated)
     return records
 

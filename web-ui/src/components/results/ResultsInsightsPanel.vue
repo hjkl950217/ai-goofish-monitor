@@ -45,8 +45,8 @@ const latestSnapshotText = computed(() => {
 </script>
 
 <template>
-  <section class="app-surface mb-6 overflow-hidden border-none">
-    <div class="grid gap-8 px-6 py-6 lg:grid-cols-[1.15fr_0.85fr] lg:px-8">
+  <section class="app-surface mb-3 overflow-hidden border-none">
+    <div class="grid gap-3 px-6 py-6 lg:grid-cols-[1.15fr_0.85fr] lg:pl-8 lg:pr-5">
       <div class="space-y-5">
         <div class="space-y-2">
           <p class="text-xs uppercase tracking-[0.28em] text-primary/70">{{ t('results.insights.sectionMarket') }}</p>

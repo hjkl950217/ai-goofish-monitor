@@ -392,6 +392,15 @@ def test_results_blacklist_rules_hide_items_from_view_and_insights(tmp_path, mon
     assert hidden_item["_hidden_reason"] == "rule"
     assert hidden_item["_matched_blacklist_keywords"] == ["intel"]
 
+    hidden_only_resp = client.get(
+        "/api/results/macbook_air_m1_full_data.jsonl",
+        params={"hidden_only": True},
+    )
+    assert hidden_only_resp.status_code == 200
+    hidden_only_payload = hidden_only_resp.json()
+    assert {item["item_info"]["item_id"] for item in hidden_only_payload["items"]} == {"2002", "2003"}
+    assert all(item["_effective_hidden"] is True for item in hidden_only_payload["items"])
+
     insights_resp = client.get("/api/results/macbook_air_m1_full_data.jsonl/insights")
     assert insights_resp.status_code == 200
     insights = insights_resp.json()

@@ -39,6 +39,7 @@ def _build_extra_filters(
     published_days: int | None,
     ship_region: str | None,
     analysis_status: str | None,
+    hidden_only: bool = False,
 ) -> dict:
     """把可选的精细筛选收成一个 dict，空值不参与查询。"""
     filters: dict = {}
@@ -52,6 +53,8 @@ def _build_extra_filters(
         filters["ship_region"] = ship_region
     if analysis_status:
         filters["analysis_status"] = analysis_status
+    if hidden_only:
+        filters["hidden_only"] = True
     return filters
 
 
@@ -110,6 +113,7 @@ async def get_result_file_content(
     ai_recommended_only: bool = Query(False),
     keyword_recommended_only: bool = Query(False),
     include_hidden: bool = Query(False),
+    hidden_only: bool = Query(False),
     sort_by: str = Query("publish_time"),
     sort_order: str = Query("desc"),
     min_price: float | None = Query(None, ge=0),
@@ -137,7 +141,7 @@ async def get_result_file_content(
             limit=limit,
             include_hidden=include_hidden,
             extra_filters=_build_extra_filters(
-                min_price, max_price, published_days, ship_region, analysis_status
+                min_price, max_price, published_days, ship_region, analysis_status, hidden_only
             ),
         )
     except ValueError as exc:
@@ -174,6 +178,7 @@ async def export_result_file_content(
     ai_recommended_only: bool = Query(False),
     keyword_recommended_only: bool = Query(False),
     include_hidden: bool = Query(False),
+    hidden_only: bool = Query(False),
     sort_by: str = Query("crawl_time"),
     sort_order: str = Query("desc"),
     min_price: float | None = Query(None, ge=0),
@@ -197,7 +202,7 @@ async def export_result_file_content(
             sort_order=sort_order,
             include_hidden=include_hidden,
             extra_filters=_build_extra_filters(
-                min_price, max_price, published_days, ship_region, analysis_status
+                min_price, max_price, published_days, ship_region, analysis_status, hidden_only
             ),
         )
         csv_text = build_results_csv(

@@ -6,6 +6,8 @@ import { useResults } from '@/composables/useResults'
 import ResultsFilterBar from '@/components/results/ResultsFilterBar.vue'
 import ResultsGrid from '@/components/results/ResultsGrid.vue'
 import ResultsInsightsPanel from '@/components/results/ResultsInsightsPanel.vue'
+import ResultsTaskList from '@/components/results/ResultsTaskList.vue'
+import ResultsSortRail from '@/components/results/ResultsSortRail.vue'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/toast'
@@ -50,6 +52,21 @@ const selectedTaskLabel = computed(() => {
   const match = fileOptions.value.find((option) => option.value === selectedFile.value)
   if (!match) return null
   return match.taskName || null
+})
+
+// 右侧悬浮栏的查看方式，映射到接口的三个开关
+const filterMode = computed<'default' | 'ai' | 'hidden' | 'all'>({
+  get: () => {
+    if (filters.hidden_only) return 'hidden'
+    if (filters.include_hidden) return 'all'
+    if (filters.ai_recommended_only) return 'ai'
+    return 'default'
+  },
+  set: (mode) => {
+    filters.ai_recommended_only = mode === 'ai'
+    filters.hidden_only = mode === 'hidden'
+    filters.include_hidden = mode === 'all'
+  },
 })
 
 const deleteConfirmText = computed(() => {
@@ -134,7 +151,7 @@ function syncQuery() {
   const query: Record<string, string> = {}
   if (selectedFile.value) query.file = selectedFile.value
   if (filters.ai_recommended_only) query.ai = '1'
-  if (filters.keyword_recommended_only) query.keyword = '1'
+  if (filters.hidden_only) query.hidden_only = '1'
   if (filters.include_hidden) query.hidden = '1'
   if (filters.sort_by !== 'score') query.sort = filters.sort_by
   if (filters.sort_order !== 'desc') query.order = filters.sort_order
@@ -155,8 +172,12 @@ function applyQuery() {
   const q = route.query
   if (typeof q.file === 'string' && q.file) selectedFile.value = q.file
   if (q.ai === '1') filters.ai_recommended_only = true
-  if (q.keyword === '1') filters.keyword_recommended_only = true
-  if (q.hidden === '1') filters.include_hidden = true
+  if (q.hidden_only === '1') {
+    filters.hidden_only = true
+    filters.include_hidden = false
+  } else if (q.hidden === '1') {
+    filters.include_hidden = true
+  }
   if (typeof q.sort === 'string' && q.sort) filters.sort_by = q.sort as typeof filters.sort_by
   if (q.order === 'asc' || q.order === 'desc') filters.sort_order = q.order
   const minPrice = Number(queryString('min_price'))
@@ -179,7 +200,7 @@ watch(
   [
     selectedFile,
     () => filters.ai_recommended_only,
-    () => filters.keyword_recommended_only,
+    () => filters.hidden_only,
     () => filters.include_hidden,
     () => filters.sort_by,
     () => filters.sort_order,
@@ -204,32 +225,44 @@ watch(
       <span class="block sm:inline">{{ error.message }}</span>
     </div>
 
-    <ResultsFilterBar
-      :files="files"
-      :file-options="fileOptions"
-      :is-ready="isFileOptionsReady"
-      v-model:selectedFile="selectedFile"
-      v-model:aiRecommendedOnly="filters.ai_recommended_only"
-      v-model:keywordRecommendedOnly="filters.keyword_recommended_only"
-      v-model:includeHidden="filters.include_hidden"
+    <div class="flex items-start gap-2.5 lg:pr-[88px]">
+      <ResultsTaskList
+        class="sticky top-20 max-h-[80vh] overflow-y-auto"
+        :file-options="fileOptions"
+        :selected-file="selectedFile"
+        @select="selectedFile = $event"
+      />
+
+      <div class="min-w-0 flex-1">
+        <ResultsFilterBar
+          :files="files"
+          :file-options="fileOptions"
+          :is-ready="isFileOptionsReady"
+          v-model:selectedFile="selectedFile"
+          v-model:minPrice="filters.min_price"
+          v-model:maxPrice="filters.max_price"
+          v-model:publishedDays="filters.published_days"
+          v-model:shipRegion="filters.ship_region"
+          v-model:analysisStatus="filters.analysis_status"
+          :is-loading="isLoading"
+          @refresh="refreshResults"
+          @reanalyze-finished="refreshResults"
+          @manage-blacklist="openBlacklistDialog"
+          @export="handleExportResults"
+          @delete="openDeleteDialog"
+        />
+
+        <ResultsInsightsPanel :insights="insights" :selected-task-label="selectedTaskLabel" />
+
+        <ResultsGrid :results="results" :is-loading="isLoading" @toggle-block="toggleItemBlock" @refreshed="refreshResults" />
+      </div>
+    </div>
+
+    <ResultsSortRail
       v-model:sortBy="filters.sort_by"
       v-model:sortOrder="filters.sort_order"
-      v-model:minPrice="filters.min_price"
-      v-model:maxPrice="filters.max_price"
-      v-model:publishedDays="filters.published_days"
-      v-model:shipRegion="filters.ship_region"
-      v-model:analysisStatus="filters.analysis_status"
-      :is-loading="isLoading"
-      @refresh="refreshResults"
-      @reanalyze-finished="refreshResults"
-      @manage-blacklist="openBlacklistDialog"
-      @export="handleExportResults"
-      @delete="openDeleteDialog"
+      v-model:filterMode="filterMode"
     />
-
-    <ResultsInsightsPanel :insights="insights" :selected-task-label="selectedTaskLabel" />
-
-    <ResultsGrid :results="results" :is-loading="isLoading" @toggle-block="toggleItemBlock" @refreshed="refreshResults" />
 
     <Dialog v-model:open="isDeleteDialogOpen">
       <DialogContent class="sm:max-w-[420px]">

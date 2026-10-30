@@ -138,7 +138,24 @@ const zhCN = {
   },
   results: {
     title: '结果查看',
-      openLocal: '查看本地详情',
+    taskList: {
+      title: '任务列表',
+      empty: '暂无任务结果',
+    },
+    sortRail: {
+      title: '排序',
+      price: '价格',
+      hits: '命中',
+      score: '性价比',
+      publish: '发布时间',
+      crawl: '爬取时间',
+      hint: '点当前项切换升序 / 降序',
+      filterTitle: '过滤',
+      modeDefault: '默认',
+      modeAi: 'AI',
+      modeHidden: '屏蔽',
+      modeAll: '全部',
+    },
   reanalyze: {
       action: '重新分析',
       title: '重新 AI 分析',
@@ -297,6 +314,7 @@ const zhCN = {
   },
 
   itemDetail: {
+  openLocal: '查看本地详情',
   back: '返回结果',
   openOnXianyu: '在闲鱼打开',
   images: '商品图片',

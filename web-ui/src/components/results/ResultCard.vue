@@ -230,7 +230,8 @@ async function onRefresh() {
 </script>
 
 <template>
-  <Card class="group flex flex-col h-full border-none shadow-glass hover:shadow-card-hover transition-all duration-300 rounded-2xl overflow-hidden bg-white/80 backdrop-blur-sm" :class="{ 'opacity-50': isHidden }">
+  <!-- 半透明 + 背景模糊会让每张卡片各自成层，几百张时滚动只重绘不合成，这里用纯白底代替 -->
+  <Card class="group flex flex-col h-full border-none shadow-glass rounded-2xl overflow-hidden bg-white" :class="{ 'opacity-50': isHidden }">
     <!-- Image Header -->
     <div class="relative aspect-[4/3] overflow-hidden">
       <div class="absolute inset-0 bg-slate-200 animate-pulse" v-if="!imageUrl"></div>
@@ -238,8 +239,9 @@ async function onRefresh() {
         v-else
         :src="imageUrl"
         :alt="info.title"
-        class="h-full w-full cursor-zoom-in object-cover transition-transform duration-500 group-hover:scale-110"
+        class="h-full w-full cursor-zoom-in object-cover"
         loading="lazy"
+        decoding="async"
         @click="openDetail"
       />
       <!-- Hidden overlay -->
@@ -303,9 +305,9 @@ async function onRefresh() {
       </div>
     </div>
 
-    <CardHeader class="p-4 pb-2">
+    <CardHeader class="px-4 pt-3 pb-1">
       <div class="flex justify-between items-start gap-3">
-        <CardTitle class="text-base font-semibold text-slate-800 line-clamp-2 leading-snug flex-grow h-10">
+        <CardTitle class="text-base font-semibold text-slate-800 line-clamp-2 leading-snug flex-grow">
           <a
             href="#"
             class="cursor-pointer hover:text-primary transition-colors"
@@ -316,26 +318,23 @@ async function onRefresh() {
           </a>
         </CardTitle>
       </div>
-      <div class="flex items-baseline gap-1 mt-2">
+      <div class="flex items-baseline gap-1 mt-1">
         <span
           class="text-2xl font-bold tracking-tight"
           :class="isExpired ? 'text-slate-400' : 'text-rose-600'"
         >{{ info.price }}</span>
         <span v-if="hasValue(info['original_price'])" class="text-xs text-slate-400 line-through mb-1">{{ info['original_price'] }}</span>
       </div>
-      <!-- 固定占位：没有价格变动时不渲染内容，但保留高度，避免同一行卡片被顶得不齐 -->
-      <div class="mt-1 flex min-h-[18px] items-center gap-1 text-[11px]">
-        <template v-if="priceDelta !== 0">
-          <component :is="priceDelta < 0 ? TrendingDown : TrendingUp" class="w-3.5 h-3.5 shrink-0" :class="deltaTone" />
-          <span class="text-slate-400">{{ t('results.card.priceSinceAdded') }}</span>
-          <span class="font-semibold" :class="deltaTone">{{ priceDelta < 0 ? '-' : '+' }}{{ formattedDelta }}</span>
-        </template>
+      <div v-if="priceDelta !== 0" class="flex items-center gap-1 text-[11px]">
+        <component :is="priceDelta < 0 ? TrendingDown : TrendingUp" class="w-3.5 h-3.5 shrink-0" :class="deltaTone" />
+        <span class="text-slate-400">{{ t('results.card.priceSinceAdded') }}</span>
+        <span class="font-semibold" :class="deltaTone">{{ priceDelta < 0 ? '-' : '+' }}{{ formattedDelta }}</span>
       </div>
     </CardHeader>
 
-    <CardContent class="p-4 pt-2 flex-grow">
+    <CardContent class="px-4 pb-3 pt-1 flex-grow">
       <!-- Product Facts -->
-      <div class="rounded-xl bg-slate-50/60 border border-slate-100/70 p-2.5 mb-3">
+      <div class="rounded-xl bg-slate-50/60 border border-slate-100/70 p-2.5 mb-2">
         <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-slate-600">
           <span class="flex items-center gap-1.5 min-w-0">
             <CalendarDays class="w-3.5 h-3.5 shrink-0 text-slate-400" />
@@ -358,7 +357,7 @@ async function onRefresh() {
             <span class="truncate font-semibold">{{ hasValue(wantCount) ? wantCount : '—' }}</span>
           </span>
         </div>
-        <div class="mt-2 flex min-h-[22px] flex-wrap gap-1">
+        <div v-if="productTags.length" class="mt-1.5 flex flex-wrap gap-1">
           <span
             v-for="tag in productTags"
             :key="tag"
@@ -370,8 +369,8 @@ async function onRefresh() {
       </div>
 
       <!-- AI Insight Section -->
-      <div class="rounded-xl p-3 border border-slate-100" :class="recommendationStatus.bg">
-        <div class="flex items-center justify-between mb-2">
+      <div class="rounded-xl p-2.5 border border-slate-100" :class="recommendationStatus.bg">
+        <div class="flex items-center justify-between mb-1.5">
           <div class="flex items-center gap-2">
             <component :is="recommendationStatus.icon" class="w-4 h-4" :class="recommendationStatus.text" />
             <span class="text-sm font-bold" :class="recommendationStatus.text">{{ recommendationStatus.label }}</span>
@@ -391,7 +390,7 @@ async function onRefresh() {
           </div>
         </div>
         
-        <div class="w-full h-1.5 bg-white/50 rounded-full overflow-hidden mb-3">
+        <div class="w-full h-1.5 bg-white/50 rounded-full overflow-hidden mb-2">
           <div 
             class="h-full transition-all duration-1000 ease-out rounded-full" 
             :class="recommendationStatus.color"
@@ -415,17 +414,17 @@ async function onRefresh() {
       </div>
 
       <!-- Price Stats Grid -->
-      <div v-if="priceInsight?.observation_count" class="mt-4 grid grid-cols-2 gap-3">
-        <div class="bg-slate-50/50 p-2.5 rounded-xl border border-slate-100/50 group/stat">
-          <div class="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 mb-1">
+      <div v-if="priceInsight?.observation_count" class="mt-2.5 grid grid-cols-2 gap-2">
+        <div class="bg-slate-50/50 p-2 rounded-xl border border-slate-100/50 group/stat">
+          <div class="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 mb-0.5">
             <TrendingUp class="w-3 h-3" /> {{ t('results.card.marketAvg') }}
           </div>
           <div class="text-sm font-bold text-slate-700">
             {{ priceInsight.market_avg_price ? `¥${priceInsight.market_avg_price}` : '—' }}
           </div>
         </div>
-        <div class="bg-slate-50/50 p-2.5 rounded-xl border border-slate-100/50">
-          <div class="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 mb-1">
+        <div class="bg-slate-50/50 p-2 rounded-xl border border-slate-100/50">
+          <div class="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 mb-0.5">
             <TrendingDown class="w-3 h-3" /> {{ t('results.card.ownLow') }}
           </div>
           <div class="text-sm font-bold text-slate-700">
@@ -434,7 +433,7 @@ async function onRefresh() {
         </div>
       </div>
       <!-- Seller Reputation -->
-      <div v-if="sellerBadges.length" class="mt-3 flex flex-wrap gap-1.5">
+      <div v-if="sellerBadges.length" class="mt-2.5 flex flex-wrap gap-1">
         <span
           v-for="badge in sellerBadges"
           :key="badge.label"
@@ -447,7 +446,7 @@ async function onRefresh() {
       </div>
     </CardContent>
 
-    <CardFooter class="px-4 py-3 bg-slate-50/30 border-t border-slate-100/60 flex items-center justify-between text-[10px]">
+    <CardFooter class="px-4 py-2 bg-slate-50/30 border-t border-slate-100/60 flex items-center justify-between text-[10px]">
       <div class="flex items-center gap-3 text-slate-400">
         <div class="flex items-center gap-1">
           <User class="w-3 h-3" />

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ResultItem } from '@/types/result.d.ts'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ResultCard from './ResultCard.vue'
 
@@ -8,7 +9,7 @@ interface Props {
   isLoading: boolean
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 const { t } = useI18n()
 
 const emit = defineEmits<{
@@ -16,18 +17,59 @@ const emit = defineEmits<{
   (e: 'refreshed'): void
 }>()
 const skeletonItems = Array.from({ length: 8 }, (_, index) => index)
+
+// 一次只挂 15 张卡片，滚到底部附近再挂下一批；500 条数据也不会一口气建 6 万多节点
+const PAGE_SIZE = 15
+const visibleCount = ref(PAGE_SIZE)
+const visibleResults = computed(() => props.results.slice(0, visibleCount.value))
+const hasMore = computed(() => visibleCount.value < props.results.length)
+const sentinel = ref<HTMLElement | null>(null)
+
+// 换筛选、排序或换文件后回到第一批；只屏蔽/取消屏蔽某条时列表头没变，保留已展开的数量
+watch(() => [props.results.length, props.results[0]?.item_info.item_id], () => {
+  visibleCount.value = PAGE_SIZE
+})
+
+let observer: IntersectionObserver | undefined
+watch(sentinel, (el) => {
+  observer?.disconnect()
+  if (!el) return
+  // 一批 15 张至少有 800px 高，触发一次就会离开观察区，不用怕连续触发
+  observer = new IntersectionObserver((entries) => {
+    if (entries.some((entry) => entry.isIntersecting)) {
+      visibleCount.value += PAGE_SIZE
+    }
+  }, { rootMargin: '800px 0px' })
+  observer.observe(el)
+}, { flush: 'post' })
+onUnmounted(() => observer?.disconnect())
+
+// 请求很快时不要整片变淡，避免刷新像闪一下；超过 200ms 才提示加载中
+const isBusy = ref(false)
+let busyTimer: ReturnType<typeof setTimeout> | undefined
+watch(() => props.isLoading, (loading) => {
+  clearTimeout(busyTimer)
+  if (!loading) {
+    isBusy.value = false
+    return
+  }
+  busyTimer = setTimeout(() => {
+    isBusy.value = true
+  }, 200)
+}, { immediate: true })
+onUnmounted(() => clearTimeout(busyTimer))
 </script>
 
 <template>
   <!-- 已有数据时刷新只降透明度，不换成骨架，避免页面高度突变导致滚动位置跳动 -->
   <div
-    :aria-busy="isLoading"
+    :aria-busy="isBusy"
     class="transition-opacity duration-200"
-    :class="{ 'opacity-50': isLoading && results.length > 0 }"
+    :class="{ 'opacity-50': isBusy && results.length > 0 }"
   >
     <div
       v-if="isLoading && results.length === 0"
-      class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]"
       aria-live="polite"
     >
       <div
@@ -51,14 +93,15 @@ const skeletonItems = Array.from({ length: 8 }, (_, index) => index)
     <div v-else-if="results.length === 0" class="app-surface text-center py-12 text-gray-500">
       {{ t('results.grid.empty') }}
     </div>
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      <ResultCard
-        v-for="item in results"
-        :key="item.item_info.item_id"
-        :item="item"
-        @toggle-block="emit('toggle-block', $event)"
-        @refreshed="emit('refreshed')"
-      />
+    <div v-else class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
+      <div v-for="item in visibleResults" :key="item.item_info.item_id" class="h-full">
+        <ResultCard
+          :item="item"
+          @toggle-block="emit('toggle-block', $event)"
+          @refreshed="emit('refreshed')"
+        />
+      </div>
+      <div v-if="hasMore" ref="sentinel" class="col-span-full h-px" aria-hidden="true"></div>
     </div>
   </div>
 </template>

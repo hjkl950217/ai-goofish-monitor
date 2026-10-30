@@ -33,6 +33,7 @@ export function useResults() {
     ai_recommended_only: boolean
     keyword_recommended_only: boolean
     include_hidden: boolean
+    hidden_only: boolean
     sort_by: 'crawl_time' | 'publish_time' | 'price' | 'keyword_hit_count' | 'score'
     sort_order: 'asc' | 'desc'
     min_price?: number
@@ -48,12 +49,19 @@ export function useResults() {
       ai_recommended_only: false,
       keyword_recommended_only: false,
       include_hidden: false,
+      hidden_only: false,
       sort_by: 'score',
       sort_order: 'desc',
     }
     try {
       const saved = localStorage.getItem(STORAGE_KEY_FILTERS)
-      if (saved) return { ...defaults, ...JSON.parse(saved) }
+      if (saved) {
+        const merged = { ...defaults, ...JSON.parse(saved) }
+        // 仅看关键词推荐与旧的 recommended_only 已从界面移除，避免旧存储把筛选带进来
+        merged.keyword_recommended_only = false
+        merged.recommended_only = false
+        return merged
+      }
     } catch { /* ignore */ }
     return defaults
   }
