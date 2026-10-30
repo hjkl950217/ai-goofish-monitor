@@ -306,3 +306,53 @@ def test_dispatcher_drops_items_whose_model_cannot_be_confirmed(monkeypatch):
 
     asyncio.run(run())
     assert saved_records == []
+
+
+def test_dispatcher_drops_items_when_model_check_is_skipped(monkeypatch):
+    """校验被跳过时不能当通过，否则型号不符的商品会静默入库。"""
+    saved_records = []
+
+    async def fake_check(**kwargs):
+        return {"matched": None, "reason": "型号判断未启用", "source": "skipped"}
+
+    monkeypatch.setattr(
+        "src.services.item_analysis_dispatcher.model_check_service.check_item",
+        fake_check,
+    )
+
+    async def saver(record: dict, keyword: str):
+        saved_records.append(record)
+        return True
+
+    async def run():
+        dispatcher = ItemAnalysisDispatcher(
+            concurrency=1,
+            skip_ai_analysis=True,
+            seller_loader=lambda user_id: {},
+            image_downloader=lambda *args: [],
+            ai_analyzer=lambda *args: {},
+            notifier=lambda *args: None,
+            saver=saver,
+        )
+        dispatcher.submit(
+            ItemAnalysisJob(
+                keyword="九号n1 90",
+                task_name="九号捡漏-N190",
+                decision_mode="ai",
+                analyze_images=False,
+                prompt_text="prompt",
+                keyword_rules=(),
+                final_record={
+                    "item_info": {"item_id": "1092606550435", "title": "小牛nqib"},
+                    "seller_info": {},
+                },
+                seller_id="seller-1",
+                zhima_credit_text=None,
+                registration_duration_text="",
+                model_check=True,
+            )
+        )
+        await dispatcher.join()
+
+    asyncio.run(run())
+    assert saved_records == []

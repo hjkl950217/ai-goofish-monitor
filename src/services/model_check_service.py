@@ -188,13 +188,11 @@ async def check_item(
 
 
 def is_accepted(verdict: Optional[dict]) -> bool:
-    """型号校验是否放行。只有明确匹配才放行，判不出、调用失败都拦掉。
+    """型号校验是否放行。只有明确匹配才放行。
 
-    唯一例外是功能没启用（source=skipped）：任务本来就不做型号校验，
-    这时的放行不代表型号被认可。
+    判不出、调用失败、以及"跳过校验"都不放行：跳过不等于型号被认可，
+    放行会让不符合型号的商品静默入库。任务关掉型号判断时调用方不会走到这里。
     """
     if verdict is None:
         return False
-    if verdict.get("source") == "skipped":
-        return True
     return verdict.get("matched") is True

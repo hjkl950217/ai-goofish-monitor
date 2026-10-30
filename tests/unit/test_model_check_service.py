@@ -143,8 +143,8 @@ def test_unknown_verdict_is_rejected(seeded_db, monkeypatch):
 def test_accepted_rules():
     assert svc.is_accepted({"matched": True, "source": "ai"}) is True
     assert svc.is_accepted({"matched": False, "source": "ai"}) is False
-    # 只有功能没开时放行；调用失败也拦掉，避免判不出的数据进库
-    assert svc.is_accepted({"matched": None, "source": "skipped"}) is True
+    # 只有明确匹配才放行；跳过校验、调用失败都拦掉，避免静默入库
+    assert svc.is_accepted({"matched": None, "source": "skipped"}) is False
     assert svc.is_accepted({"matched": None, "source": "error"}) is False
     assert svc.is_accepted(None) is False
 
