@@ -205,12 +205,8 @@ async def run_check(
 
             matched = verdict.get("matched")
             if model_check_service.is_accepted(verdict):
-                if matched is True:
-                    _status["matched"] += 1
-                    flag = "匹配"
-                else:
-                    _status["failed"] += 1
-                    flag = "调用失败，保留"
+                _status["matched"] += 1
+                flag = "匹配"
             else:
                 if matched is None:
                     _status["failed"] += 1
@@ -222,7 +218,12 @@ async def run_check(
                         str(row["task_name"] or ""),
                     )
                     _status["removed"] += 1
-                    flag = "判不出，已删除" if matched is None else "已删除"
+                    if verdict.get("source") == "error":
+                        flag = "判断失败，已删除"
+                    elif matched is None:
+                        flag = "判不出，已删除"
+                    else:
+                        flag = "已删除"
                 except Exception as exc:  # noqa: BLE001
                     _status["failed"] += 1
                     flag = f"删除失败: {exc}"

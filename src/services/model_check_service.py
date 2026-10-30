@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 from datetime import datetime
@@ -155,24 +156,30 @@ async def check_item(
         save_check(item_id, task_id, True, "本地预筛命中", datetime.now().isoformat(timespec="seconds"))
         return {"matched": True, "reason": "本地预筛命中", "source": "prefilter"}
 
-    try:
-        prompt = load_prompt().replace("{{TARGET}}", target or "")
-        content = f"{prompt}\n\n商品标题：{title or '无'}\n商品描述：{description or '无'}"
-        raw = await _get_client().complete(
-            [{"role": "user", "content": content}],
-            temperature=0.05,
-            max_output_tokens=300,
-        )
-        parsed = parse_ai_response_json(raw)
-        matched = parsed.get("matched")
-        if not isinstance(matched, bool):
+    prompt = load_prompt().replace("{{TARGET}}", target or "")
+    content = f"{prompt}\n\n商品标题：{title or '无'}\n商品描述：{description or '无'}"
+    # 单次网络抖动不该直接判成不通过，失败后重试一次
+    for attempt in range(2):
+        try:
+            raw = await _get_client().complete(
+                [{"role": "user", "content": content}],
+                temperature=0.05,
+                max_output_tokens=300,
+            )
+            parsed = parse_ai_response_json(raw)
+            matched = parsed.get("matched")
+            if not isinstance(matched, bool):
+                matched = None
+            reason = str(parsed.get("reason") or "").strip()[:500]
+            source = "ai"
+            break
+        except Exception as exc:  # noqa: BLE001
             matched = None
-        reason = str(parsed.get("reason") or "").strip()[:500]
-        source = "ai"
-    except Exception as exc:  # noqa: BLE001
-        matched = None
-        reason = f"型号判断失败: {exc}"[:500]
-        source = "error"
+            reason = f"型号判断失败: {exc}"[:500]
+            source = "error"
+            print(f"   [型号] 判断调用失败({attempt + 1}/2)，按不通过处理: {exc}")
+            if attempt == 0:
+                await asyncio.sleep(1)
 
     # 调用失败不算判断结果，不写缓存，下次还能重判
     if source != "error":
@@ -181,13 +188,13 @@ async def check_item(
 
 
 def is_accepted(verdict: Optional[dict]) -> bool:
-    """型号校验是否放行。只有明确匹配才放行，判不出直接拦掉。
+    """型号校验是否放行。只有明确匹配才放行，判不出、调用失败都拦掉。
 
-    两种例外：功能没启用（source=skipped）、AI 调用失败（source=error），
-    它们不代表「不是目标型号」，放行避免把故障变成丢数据。
+    唯一例外是功能没启用（source=skipped）：任务本来就不做型号校验，
+    这时的放行不代表型号被认可。
     """
     if verdict is None:
-        return True
-    if verdict.get("source") in {"skipped", "error"}:
+        return False
+    if verdict.get("source") == "skipped":
         return True
     return verdict.get("matched") is True

@@ -80,13 +80,13 @@ class ItemAnalysisDispatcher:
         record = copy.deepcopy(job.final_record)
         item_data = record.get("item_info", {}) or {}
 
-        # 型号核对放在最前面：不是任务要的型号、或判不出型号的，卖家信息、AI 分析、图片都不做
+        # 型号核对放在最前面：不是任务要的型号、判不出型号、判断调用失败的，都不入库
         if job.model_check and not job.update_existing:
             verdict = await self._check_model(job, item_data)
             if not model_check_service.is_accepted(verdict):
                 print(
-                    f"   [型号] 商品 {item_data.get('item_id')} 不是「{job.keyword}」或判不出型号，跳过入库："
-                    f"{(verdict or {}).get('reason')}"
+                    f"   [型号] 商品 {item_data.get('item_id')} 未通过型号校验，跳过入库："
+                    f"{(verdict or {}).get('reason') or '型号判断失败'}"
                 )
                 return
 
@@ -117,7 +117,7 @@ class ItemAnalysisDispatcher:
         await self._notify_if_recommended(item_data, record["ai_analysis"])
 
     async def _check_model(self, job: ItemAnalysisJob, item_data: dict) -> Optional[dict]:
-        """返回 None 表示调用出错，由 is_accepted 按放行处理。"""
+        """返回 None 表示没拿到商品 ID 或调用抛异常，由 is_accepted 按不通过处理。"""
         item_id = str(item_data.get("item_id") or "").strip()
         if not item_id:
             return None
@@ -130,7 +130,7 @@ class ItemAnalysisDispatcher:
                 description=str(item_data.get("description") or ""),
             )
         except Exception as exc:  # noqa: BLE001
-            print(f"   [型号] 判断出错，放行: {exc}")
+            print(f"   [型号] 判断出错，按不通过处理: {exc}")
             return None
 
     async def _load_seller_info(self, job: ItemAnalysisJob) -> dict:
