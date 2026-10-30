@@ -304,7 +304,7 @@ async function onRefresh() {
       </div>
     </div>
 
-    <CardHeader class="px-4 pt-3 pb-1">
+    <CardHeader class="px-4 pt-2.5 pb-1 gap-y-1">
       <div class="flex justify-between items-start gap-3">
         <CardTitle class="text-base font-semibold text-slate-800 line-clamp-2 leading-snug flex-grow">
           <a
@@ -317,7 +317,7 @@ async function onRefresh() {
           </a>
         </CardTitle>
       </div>
-      <div class="flex items-baseline gap-1 mt-1">
+      <div class="flex items-baseline gap-1 mt-0.5">
         <span
           class="text-2xl font-bold tracking-tight"
           :class="isExpired ? 'text-slate-400' : 'text-rose-600'"
@@ -331,10 +331,10 @@ async function onRefresh() {
       </div>
     </CardHeader>
 
-    <CardContent class="px-4 pb-3 pt-1 flex-grow">
+    <CardContent class="px-4 pb-2 pt-0.5 flex-grow">
       <!-- Product Facts -->
-      <div class="rounded-xl bg-slate-50/60 border border-slate-100/70 p-2.5 mb-2">
-        <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-slate-600">
+      <div class="rounded-xl bg-slate-50/60 border border-slate-100/70 p-2 mb-1.5">
+        <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-slate-600">
           <span class="flex items-center gap-1.5 min-w-0">
             <CalendarDays class="w-3.5 h-3.5 shrink-0 text-slate-400" />
             <span class="min-w-0 truncate text-slate-400">{{ t('results.card.publishTime') }}</span>
@@ -356,7 +356,7 @@ async function onRefresh() {
             <span class="truncate font-semibold">{{ hasValue(wantCount) ? wantCount : '—' }}</span>
           </span>
         </div>
-        <div v-if="productTags.length" class="mt-1.5 flex flex-wrap gap-1">
+        <div v-if="productTags.length" class="mt-1 flex flex-wrap gap-1">
           <span
             v-for="tag in productTags"
             :key="tag"
@@ -369,7 +369,7 @@ async function onRefresh() {
 
       <!-- AI Insight Section -->
       <div class="rounded-xl p-2.5 border border-slate-100" :class="recommendationStatus.bg">
-        <div class="flex items-center justify-between mb-1.5">
+        <div class="flex items-center justify-between mb-1">
           <div class="flex items-center gap-2">
             <component :is="recommendationStatus.icon" class="w-4 h-4" :class="recommendationStatus.text" />
             <span class="text-sm font-bold" :class="recommendationStatus.text">{{ recommendationStatus.label }}</span>
@@ -389,7 +389,7 @@ async function onRefresh() {
           </div>
         </div>
         
-        <div class="w-full h-1.5 bg-white/50 rounded-full overflow-hidden mb-2">
+        <div class="w-full h-1.5 bg-white/50 rounded-full overflow-hidden mb-1.5">
           <div 
             class="h-full transition-all duration-1000 ease-out rounded-full" 
             :class="recommendationStatus.color"
@@ -405,7 +405,7 @@ async function onRefresh() {
           type="button"
           v-if="ai?.reason && ai.reason.length > 50"
           @click="expanded = !expanded" 
-          class="mt-1 text-[10px] font-bold uppercase text-primary/70 hover:text-primary transition-colors flex items-center gap-1"
+          class="mt-0.5 text-[10px] font-bold uppercase text-primary/70 hover:text-primary transition-colors flex items-center gap-1"
         >
           {{ expanded ? t('results.card.collapse') : t('results.card.expand') }}
           <Info class="w-3 h-3" />
@@ -413,8 +413,8 @@ async function onRefresh() {
       </div>
 
       <!-- Price Stats Grid -->
-      <div v-if="priceInsight?.observation_count" class="mt-2.5 grid grid-cols-2 gap-2">
-        <div class="bg-slate-50/50 p-2 rounded-xl border border-slate-100/50 group/stat">
+      <div v-if="priceInsight?.observation_count" class="mt-2 grid grid-cols-2 gap-2">
+        <div class="bg-slate-50/50 p-1.5 rounded-xl border border-slate-100/50 group/stat">
           <div class="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 mb-0.5">
             <TrendingUp class="w-3 h-3" /> {{ t('results.card.marketAvg') }}
           </div>
@@ -422,7 +422,7 @@ async function onRefresh() {
             {{ priceInsight.market_avg_price ? `¥${priceInsight.market_avg_price}` : '—' }}
           </div>
         </div>
-        <div class="bg-slate-50/50 p-2 rounded-xl border border-slate-100/50">
+        <div class="bg-slate-50/50 p-1.5 rounded-xl border border-slate-100/50">
           <div class="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 mb-0.5">
             <TrendingDown class="w-3 h-3" /> {{ t('results.card.ownLow') }}
           </div>
@@ -432,7 +432,7 @@ async function onRefresh() {
         </div>
       </div>
       <!-- Seller Reputation -->
-      <div v-if="sellerBadges.length" class="mt-2.5 flex flex-wrap gap-1">
+      <div v-if="sellerBadges.length" class="mt-2 flex flex-wrap gap-x-1 gap-y-0.5">
         <span
           v-for="badge in sellerBadges"
           :key="badge.label"
