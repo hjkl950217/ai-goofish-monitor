@@ -22,6 +22,7 @@ from src.api.routes import (
     favorites,
     reanalyze,
     items,
+    image_proxy,
     model_check,
     ops,
     config_file,
@@ -137,6 +138,7 @@ app.include_router(accounts.router)
 app.include_router(favorites.router)
 app.include_router(reanalyze.router)
 app.include_router(items.router)
+app.include_router(image_proxy.router)
 app.include_router(model_check.router)
 app.include_router(ops.router)
 app.include_router(config_file.router)

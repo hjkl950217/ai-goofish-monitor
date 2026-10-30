@@ -88,6 +88,13 @@ const wantCount = info['want_count']
 const productTags = Array.isArray(info.tags) ? info.tags : []
 
 const listingStats = computed(() => {
+  const total = Number.parseInt(String(seller['seller_listing_counts'] ?? ''), 10)
+  // 卡片接口已经算好两个计数，省得把整段在售/已售明细传过来
+  const onSaleCount = Number(seller['on_sale_count'])
+  const soldCount = Number(seller['sold_count'])
+  if (Number.isFinite(onSaleCount) && Number.isFinite(soldCount) && (onSaleCount || soldCount)) {
+    return { onSale: onSaleCount, sold: soldCount, total: Number.isNaN(total) ? onSaleCount + soldCount : total }
+  }
   const list = Array.isArray(seller['seller_items']) ? seller['seller_items'] : []
   let onSale = 0
   let sold = 0
@@ -95,7 +102,6 @@ const listingStats = computed(() => {
     if (entry?.status === '在售') onSale += 1
     else if (entry?.status === '已售') sold += 1
   }
-  const total = Number.parseInt(String(seller['seller_listing_counts'] ?? ''), 10)
   return { onSale, sold, total: Number.isNaN(total) ? onSale + sold : total }
 })
 

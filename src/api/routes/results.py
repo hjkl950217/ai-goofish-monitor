@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from urllib.parse import quote
 
 from src.services.price_history_service import build_price_history_insights
+from src.services.result_card_view import compact_card_record
 from src.services.result_export_service import build_results_csv
 from src.services.result_file_service import (
     enrich_records_with_price_insight,
@@ -121,8 +122,9 @@ async def get_result_file_content(
     published_days: int | None = Query(None, ge=1, le=365),
     ship_region: str | None = Query(None),
     analysis_status: str | None = Query(None, pattern="^(analyzed|failed|pending)$"),
+    fields: str = Query("full", pattern="^(full|card)$"),
 ):
-    """读取指定的 .jsonl 文件内容，支持分页、筛选和排序"""
+    """读取指定的 .jsonl 文件内容，支持分页、筛选和排序；fields=card 只返回卡片用得到的字段"""
     if ai_recommended_only and keyword_recommended_only:
         raise HTTPException(status_code=400, detail="AI推荐筛选与关键词推荐筛选不能同时开启。")
 
@@ -151,6 +153,8 @@ async def get_result_file_content(
     if total_items <= 0 and not await result_file_exists(filename):
         raise HTTPException(status_code=404, detail="结果文件未找到")
     paginated_results = enrich_records_with_price_insight(items, filename)
+    if fields == "card":
+        paginated_results = [compact_card_record(record) for record in paginated_results]
 
     return {
         "total_items": total_items,

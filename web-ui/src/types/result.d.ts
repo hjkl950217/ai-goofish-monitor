@@ -37,6 +37,9 @@ export interface SellerInfo {
   "buyer_good_rate"?: string;
   "seller_items"?: any[]; // Define more strictly if needed
   "seller_ratings"?: any[]; // Define more strictly if needed
+  /** fields=card 时后端算好的在售/已售数量，替代整段 seller_items 明细 */
+  "on_sale_count"?: number;
+  "sold_count"?: number;
 }
 
 export interface AiAnalysis {

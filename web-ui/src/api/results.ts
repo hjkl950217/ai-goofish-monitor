@@ -16,6 +16,8 @@ export interface GetResultContentParams {
   published_days?: number;
   ship_region?: string;
   analysis_status?: 'analyzed' | 'failed' | 'pending';
+  /** card 只取卡片用得到的字段，一条从 26KB 降到 3.5KB 左右 */
+  fields?: 'full' | 'card';
 }
 
 export async function getResultFiles(): Promise<string[]> {

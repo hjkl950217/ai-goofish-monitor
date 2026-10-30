@@ -131,6 +131,7 @@ export function useResults() {
         ...filters,
         page: page.value,
         limit: limit.value,
+        fields: 'card',
       })
       results.value = data.items
       totalItems.value = data.total_items
