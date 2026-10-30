@@ -32,6 +32,8 @@ META_PROMPT_TEMPLATE = """
 2.  保留范例中的 `[V6.3 核心升级]`、`[V6.4 逻辑修正]` 等版本标记，这有助于保持格式一致性。
 3.  将范例中所有与 "MacBook" 相关的内容，替换为与用户需求商品相关的内容。
 4.  思考并生成针对新商品类型的“一票否决硬性原则”和“危险信号清单”。
+5.  一票否决的第一条必须锁定需求里的品牌和具体型号：品牌不同、型号后缀不同（例如目标 N1 90 时，N90C、N1 70、N1 85 都算不同型号）一律 FAIL。品牌和型号只在用户需求里出现过的那个才写，不要在加分项或品牌举例里列出其它品牌。
+6.  必须输出完整文本，一直写到卖家评估和输出格式部分，不要中途结束。
 """
 
 ProgressCallback = Callable[[str, str], Awaitable[None]]
@@ -42,6 +44,7 @@ _THINK_BLOCK_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 _UNCLOSED_THINK_RE = re.compile(r"<(?:think|thinking)>", re.IGNORECASE)
+_TRUNCATED_TAIL_RE = re.compile(r"[（(]\s*$")
 
 
 async def _report_progress(
@@ -72,6 +75,12 @@ def _strip_reasoning_blocks(text: str) -> str:
         )
     if not stripped:
         raise RuntimeError("AI 没有生成分析标准正文。")
+    # 加粗没闭合、或停在半个括号上，都是输出被截断的特征，宁可报错也不要存半截标准
+    if stripped.count("**") % 2 == 1 or _TRUNCATED_TAIL_RE.search(stripped):
+        raise RuntimeError(
+            "生成的分析标准疑似被截断（加粗或括号未闭合），已放弃保存。"
+            "请重试，或换一个输出长度更宽裕的模型。"
+        )
     return stripped
 
 

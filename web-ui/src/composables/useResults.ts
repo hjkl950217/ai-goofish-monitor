@@ -26,8 +26,7 @@ export function useResults() {
   const readyDelayMs = 200
   let readyTimer: ReturnType<typeof setTimeout> | null = null
   
-  // 换 key 让旧存储里的 ai_recommended_only=false 失效，默认值才能生效
-  const STORAGE_KEY_FILTERS = 'resultFiltersV3'
+  const STORAGE_KEY_FILTERS = 'resultFiltersV2'
 
   type ResultFilters = {
     recommended_only: boolean
@@ -47,8 +46,7 @@ export function useResults() {
   function loadPersistedFilters(): ResultFilters {
     const defaults: ResultFilters = {
       recommended_only: false,
-      // 默认只看 AI 推荐，型号不符/商家货默认不占屏，用户可切到「全部」
-      ai_recommended_only: true,
+      ai_recommended_only: false,
       keyword_recommended_only: false,
       include_hidden: false,
       hidden_only: false,

@@ -87,6 +87,30 @@ def test_generate_criteria_rejects_truncated_think_block(monkeypatch, tmp_path):
         asyncio.run(prompt_utils.generate_criteria("need a watch", str(reference_file)))
 
 
+def test_generate_criteria_rejects_truncated_criteria(monkeypatch, tmp_path):
+    """加粗没闭合说明输出被截断，不能把半截标准存下来。"""
+    reference_file = tmp_path / "reference.txt"
+    reference_file.write_text("reference", encoding="utf-8")
+
+    class FakeAIClient:
+        def is_available(self):
+            return True
+
+        def refresh(self):
+            raise AssertionError("refresh should not be called")
+
+        async def _call_ai(self, *_args, **_kwargs):
+            return "**一票否决**：电池健康度不足\n\n2. **电池配置：不带电池或电池已报废"
+
+        async def close(self):
+            return None
+
+    monkeypatch.setattr(prompt_utils, "AIClient", FakeAIClient)
+
+    with pytest.raises(RuntimeError, match="疑似被截断"):
+        asyncio.run(prompt_utils.generate_criteria("need a bike", str(reference_file)))
+
+
 def test_generate_criteria_closes_ai_client_after_ai_failure(monkeypatch, tmp_path):
     close_state = {"closed": False}
     reference_file = tmp_path / "reference.txt"
