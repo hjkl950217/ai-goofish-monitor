@@ -231,7 +231,7 @@ async function onRefresh() {
 
 <template>
   <!-- 半透明 + 背景模糊会让每张卡片各自成层，几百张时滚动只重绘不合成，这里用纯白底代替 -->
-  <Card class="group flex flex-col h-full border-none shadow-glass rounded-2xl overflow-hidden bg-white" :class="{ 'opacity-50': isHidden }">
+  <Card class="group flex flex-col h-full border-none shadow-glass hover:shadow-card-hover transition-shadow duration-300 rounded-2xl overflow-hidden bg-white" :class="{ 'opacity-50': isHidden }">
     <!-- Image Header -->
     <div class="relative aspect-[4/3] overflow-hidden">
       <div class="absolute inset-0 bg-slate-200 animate-pulse" v-if="!imageUrl"></div>
@@ -239,7 +239,7 @@ async function onRefresh() {
         v-else
         :src="imageUrl"
         :alt="info.title"
-        class="h-full w-full cursor-zoom-in object-cover"
+        class="h-full w-full cursor-zoom-in object-cover transition-transform duration-500 group-hover:scale-110"
         loading="lazy"
         decoding="async"
         @click="openDetail"
