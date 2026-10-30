@@ -111,6 +111,39 @@ def test_generate_criteria_rejects_truncated_criteria(monkeypatch, tmp_path):
         asyncio.run(prompt_utils.generate_criteria("need a bike", str(reference_file)))
 
 
+def test_generate_criteria_includes_target_keyword(monkeypatch, tmp_path):
+    """搜索关键词要进 meta prompt，否则生成的标准锁不住品牌型号。"""
+    reference_file = tmp_path / "reference.txt"
+    reference_file.write_text("reference", encoding="utf-8")
+    captured = {}
+
+    class FakeAIClient:
+        def is_available(self):
+            return True
+
+        def refresh(self):
+            raise AssertionError("refresh should not be called")
+
+        async def _call_ai(self, messages, **_kwargs):
+            captured["prompt"] = messages[0]["content"]
+            return "**分析标准** 完整内容。"
+
+        async def close(self):
+            return None
+
+    monkeypatch.setattr(prompt_utils, "AIClient", FakeAIClient)
+
+    asyncio.run(
+        prompt_utils.generate_criteria(
+            "需要一台电动车",
+            str(reference_file),
+            target_keyword="九号n1 90",
+        )
+    )
+
+    assert "九号n1 90" in captured["prompt"]
+
+
 def test_generate_criteria_closes_ai_client_after_ai_failure(monkeypatch, tmp_path):
     close_state = {"closed": False}
     reference_file = tmp_path / "reference.txt"

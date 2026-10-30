@@ -193,7 +193,8 @@ async def update_task(
                 print("开始调用 AI 生成新的分析标准...")
                 generated_criteria = await generate_criteria(
                     user_description=description_for_ai,
-                    reference_file_path="prompts/macbook_criteria.txt"
+                    reference_file_path="prompts/macbook_criteria.txt",
+                    target_keyword=existing_task.keyword,
                 )
                 if not generated_criteria or len(generated_criteria.strip()) == 0:
                     print("AI 返回的内容为空")

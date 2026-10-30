@@ -25,6 +25,11 @@ META_PROMPT_TEMPLATE = """
 ```text
 {user_description}
 ```
+
+任务是监控这个搜索关键词的商品，关键词就是目标品牌型号：
+```text
+{target_keyword}
+```
 ---
 
 请现在开始生成全新的【分析标准】文本。请注意：
@@ -32,7 +37,7 @@ META_PROMPT_TEMPLATE = """
 2.  保留范例中的 `[V6.3 核心升级]`、`[V6.4 逻辑修正]` 等版本标记，这有助于保持格式一致性。
 3.  将范例中所有与 "MacBook" 相关的内容，替换为与用户需求商品相关的内容。
 4.  思考并生成针对新商品类型的“一票否决硬性原则”和“危险信号清单”。
-5.  一票否决的第一条必须锁定需求里的品牌和具体型号：品牌不同、型号后缀不同（例如目标 N1 90 时，N90C、N1 70、N1 85 都算不同型号）一律 FAIL。品牌和型号只在用户需求里出现过的那个才写，不要在加分项或品牌举例里列出其它品牌。
+5.  一票否决的第一条必须把上面的搜索关键词原文写进去，写成「必须是 <关键词>」这种明确形式。品牌不同、型号后缀不同（例如关键词是 N1 90 时，N90C、N1 70、N1 85 都算不同型号）一律 FAIL。除这个关键词里的品牌外，不要在加分项、品牌举例或其它地方提到别的品牌名。
 6.  必须输出完整文本，一直写到卖家评估和输出格式部分，不要中途结束。
 """
 
@@ -118,6 +123,7 @@ async def generate_criteria(
     user_description: str,
     reference_file_path: str,
     progress_callback: Optional[ProgressCallback] = None,
+    target_keyword: str = "",
 ) -> str:
     """
     Generates a new criteria file content using AI.
@@ -139,6 +145,7 @@ async def generate_criteria(
         prompt = META_PROMPT_TEMPLATE.format(
             reference_text=reference_text,
             user_description=user_description,
+            target_keyword=target_keyword or "（未提供，按需求描述推断）",
         )
 
         await _report_progress(progress_callback, "llm", "正在调用 AI 生成分析标准。")

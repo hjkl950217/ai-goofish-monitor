@@ -94,6 +94,7 @@ async def run_ai_generation_job(
             user_description=req.description or "",
             reference_file_path="prompts/macbook_criteria.txt",
             progress_callback=report_progress,
+            target_keyword=req.keyword,
         )
 
         await advance_job(
