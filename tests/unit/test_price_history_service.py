@@ -1,6 +1,7 @@
 from src.services.price_history_service import (
     _summarize_prices,
     build_item_price_context,
+    build_market_reference,
     build_price_history_insights,
     load_price_snapshots,
     record_market_snapshots,
@@ -107,4 +108,34 @@ def test_record_market_snapshots_and_build_price_history_insights(tmp_path, monk
     assert item_context["min_price"] == 9500.0
     assert item_context["max_price"] == 10000.0
     assert item_context["price_change_amount"] == -500.0
-    assert item_context["deal_label"] == "高性价比"
+    # 只有同商品自身历史、没有核实过的同类样本时不给估价
+    assert item_context["deal_score"] is None
+    assert item_context["deal_label"] == "暂无可靠数据"
+
+
+def test_market_reference_does_not_treat_raw_search_results_as_comparable():
+    item = {"item_id": "car", "title": "九号N1 90整车", "price": 5000}
+    mixed = [item] + [
+        {"item_id": str(i), "title": "九号N1 90配件", "price": 50} for i in range(9)
+    ]
+    snapshots = [dict(row, run_id="run", snapshot_time="2026-11-01T10:00:00") for row in mixed]
+    result = build_market_reference(
+        keyword="九号N1 90", item=item, current_market_items=mixed,
+        historical_snapshots=snapshots,
+    )
+    assert result["当前搜索样本"]["sample_count"] == 0
+    assert result["本商品价格位置"]["deal_score"] is None
+
+
+def test_market_reference_uses_only_verified_comparable_items():
+    cars = [{"item_id": key, "price": price} for key, price in (("a", 4900), ("b", 5000), ("c", 5100))]
+    accessories = [{"item_id": str(i), "price": 50} for i in range(9)]
+    snapshots = [dict(row, run_id="run", snapshot_time="2026-11-01T10:00:00") for row in cars + accessories]
+    result = build_market_reference(
+        keyword="九号N1 90", item=cars[1], current_market_items=cars + accessories,
+        historical_snapshots=snapshots, comparable_item_ids={"a", "b", "c"},
+    )
+    assert result["当前搜索样本"]["sample_count"] == 3
+    assert result["当前搜索样本"]["median_price"] == 5000
+    assert result["本商品价格位置"]["market_median_price"] == 5000
+    assert result["本商品价格位置"]["comparison_verified"] is True

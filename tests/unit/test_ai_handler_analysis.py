@@ -275,3 +275,29 @@ def test_get_ai_analysis_uses_first_json_object_when_model_returns_multiple_obje
 
     assert result["is_recommended"] is True
     assert result["reason"] == "first"
+
+
+@pytest.mark.parametrize("criteria,hard", [
+    ({"model_chip": {"status": "FAIL"}}, None),
+    ({"seller_type": {"status": "PASS"}}, {"budget": {"status": "FAIL", "evidence": "超过预算"}}),
+    ({"seller_type": {"status": "PASS"}}, {"target_model": {"status": "UNKNOWN", "evidence": "没有证据"}}),
+])
+def test_recommendation_cannot_override_failed_or_unknown_hard_requirements(criteria, hard):
+    criteria.setdefault("seller_type", {"status": "PASS"})
+    result = {
+        "prompt_version": "v1", "is_recommended": True,
+        "reason": "推荐", "risk_tags": [], "criteria_analysis": criteria,
+    }
+    if hard is not None:
+        result["hard_requirements"] = hard
+    assert ai_handler.validate_ai_response_format(result) is False
+
+
+def test_soft_unknown_does_not_automatically_veto_conditional_recommendation():
+    result = {
+        "prompt_version": "v1", "is_recommended": True,
+        "reason": "有条件推荐，需核实电池", "risk_tags": ["电池待核实"],
+        "criteria_analysis": {"seller_type": {"status": "PASS"}, "battery_health": {"status": "NEEDS_MANUAL_CHECK"}},
+        "hard_requirements": {"target_model": {"status": "PASS", "evidence": "明确写出目标型号"}},
+    }
+    assert ai_handler.validate_ai_response_format(result) is True

@@ -6,10 +6,12 @@ import asyncio
 import copy
 import os
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Awaitable, Callable, Optional
 
 from src.keyword_rule_engine import build_search_text, evaluate_keyword_rules
 from src.services import model_check_service
+from src.services.price_history_service import build_market_reference, parse_price_value
 
 
 SellerLoader = Callable[[str], Awaitable[dict]]
@@ -62,6 +64,8 @@ class ItemAnalysisDispatcher:
         self._updater = updater or saver
         self._tasks: set[asyncio.Task] = set()
         self.completed_count = 0
+        # 本任务运行中已确认型号的商品价格，作为唯一可比样本来源
+        self._verified_prices: dict[str, float] = {}
 
     def submit(self, job: ItemAnalysisJob) -> None:
         task = asyncio.create_task(self._process_with_limit(job))
@@ -89,9 +93,14 @@ class ItemAnalysisDispatcher:
                     f"{(verdict or {}).get('reason') or '型号判断失败'}"
                 )
                 return
+        if job.model_check or job.update_existing:
+            self._remember_verified_price(item_data)
+        record["price_reference"], record["price_insight"] = self._build_price_reference(
+            job, item_data
+        )
 
         if job.update_existing:
-            record.setdefault("seller_info", {})
+            record.setdefault("seller_info", {}).setdefault("profile_complete", False)
         else:
             record["seller_info"] = await self._load_seller_info(job)
 
@@ -133,6 +142,31 @@ class ItemAnalysisDispatcher:
             print(f"   [型号] 判断出错，按不通过处理: {exc}")
             return None
 
+    def _remember_verified_price(self, item_data: dict) -> None:
+        item_id = str(item_data.get("item_id") or "").strip()
+        price = parse_price_value(item_data.get("price"))
+        if item_id and price is not None:
+            self._verified_prices[item_id] = price
+
+    def _build_price_reference(self, job: ItemAnalysisJob, item_data: dict) -> tuple[dict, dict]:
+        """只用本次已确认型号的商品作行情；样本不足时明确标为没有可靠数据。"""
+        items = [
+            {"item_id": item_id, "price": price}
+            for item_id, price in self._verified_prices.items()
+        ]
+        snapshots = [
+            {**item, "run_id": "verified", "snapshot_time": datetime.now().isoformat()}
+            for item in items
+        ]
+        reference = build_market_reference(
+            keyword=job.keyword,
+            item=item_data,
+            current_market_items=items,
+            historical_snapshots=snapshots,
+            comparable_item_ids=set(self._verified_prices),
+        )
+        return reference, reference.get("本商品价格位置", {})
+
     async def _load_seller_info(self, job: ItemAnalysisJob) -> dict:
         seller_info = {}
         if job.seller_id:
@@ -141,6 +175,8 @@ class ItemAnalysisDispatcher:
             except Exception as exc:
                 print(f"   [卖家] 采集卖家 {job.seller_id} 信息失败: {exc}")
         merged = copy.deepcopy(seller_info or {})
+        # 采集失败或滚动超时时明确告诉模型资料不完整，不能据此编造卖家画像。
+        merged["profile_complete"] = bool((seller_info or {}).get("profile_complete"))
         merged["seller_zhima_credit"] = job.zhima_credit_text
         merged["seller_registered_years"] = job.registration_duration_text
         return merged

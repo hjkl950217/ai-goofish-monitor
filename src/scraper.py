@@ -54,7 +54,6 @@ from src.services.item_analysis_dispatcher import (
     ItemAnalysisJob,
 )
 from src.services.price_history_service import (
-    build_market_reference,
     load_price_snapshots,
     record_market_snapshots,
 )
@@ -583,6 +582,7 @@ async def scrape_user_profile(context, user_id: str) -> dict:
     """
     print(f"   -> 开始采集用户ID: {user_id} 的完整信息...")
     profile_data = {}
+    complete = True
     page = await context.new_page()
 
     # 为各项异步任务准备Future和数据容器
@@ -647,6 +647,7 @@ async def scrape_user_profile(context, user_id: str) -> dict:
                 await asyncio.wait_for(stop_item_scrolling.wait(), timeout=8)
             except asyncio.TimeoutError:
                 print("      [滚动超时] 商品列表可能已加载完毕。")
+                complete = False
                 break
         profile_data["seller_items"] = await _parse_user_items_data(all_items)
 
@@ -663,6 +664,7 @@ async def scrape_user_profile(context, user_id: str) -> dict:
                     await asyncio.wait_for(stop_rating_scrolling.wait(), timeout=8)
                 except asyncio.TimeoutError:
                     print("      [滚动超时] 评价列表可能已加载完毕。")
+                    complete = False
                     break
 
             profile_data["seller_ratings"] = await parse_ratings_data(all_ratings)
@@ -670,14 +672,17 @@ async def scrape_user_profile(context, user_id: str) -> dict:
             profile_data.update(reputation_stats)
         else:
             print("      [警告] 未找到评价选项卡，跳过评价采集。")
+            complete = False
 
     except Exception as e:
         print(f"   [错误] 采集用户 {user_id} 信息时发生错误: {e}")
+        complete = False
     finally:
         page.remove_listener("response", handle_response)
         await page.close()
         print(f"   -> 用户 {user_id} 信息采集完成。")
 
+    profile_data["profile_complete"] = complete
     return profile_data
 
 
@@ -1361,16 +1366,13 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0, run_summary: di
                                     "item_info": item_data,
                                     "seller_info": {},
                                 }
-                                price_reference = build_market_reference(
-                                    keyword=keyword,
-                                    item=item_data,
-                                    current_market_items=basic_items,
-                                    historical_snapshots=historical_snapshots,
-                                )
-                                final_record["price_reference"] = price_reference
-                                final_record["price_insight"] = price_reference.get(
-                                    "本商品价格位置", {}
-                                )
+                                # 搜索页样本未做型号核对，不能直接当行情；交给后台分析在型号通过后筛出可比商品。
+                                final_record["price_reference"] = {"关键词": keyword, "comparison_verified": False}
+                                final_record["price_insight"] = {
+                                    "deal_score": None,
+                                    "deal_label": "暂无可靠数据",
+                                    "comparison_verified": False,
+                                }
 
                                 analysis_dispatcher.submit(
                                     ItemAnalysisJob(

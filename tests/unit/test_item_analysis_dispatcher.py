@@ -308,6 +308,62 @@ def test_dispatcher_drops_items_whose_model_cannot_be_confirmed(monkeypatch):
     assert saved_records == []
 
 
+def test_market_price_uses_only_items_that_passed_model_check(monkeypatch):
+    saved_records = []
+
+    async def fake_check(**kwargs):
+        accepted = kwargs["item_id"] in {"car-a", "car-b"}
+        return {"matched": accepted, "reason": "型号核对", "source": "ai"}
+
+    monkeypatch.setattr(
+        "src.services.item_analysis_dispatcher.model_check_service.check_item",
+        fake_check,
+    )
+
+    async def saver(record: dict, keyword: str):
+        saved_records.append(record)
+        return True
+
+    async def run():
+        dispatcher = ItemAnalysisDispatcher(
+            concurrency=1,
+            skip_ai_analysis=True,
+            seller_loader=lambda user_id: {},
+            image_downloader=lambda *args: [],
+            ai_analyzer=lambda *args: {},
+            notifier=lambda *args: None,
+            saver=saver,
+        )
+        for item_id, price in (("car-a", "¥5000"), ("car-b", "¥4800"), ("part", "¥50")):
+            dispatcher.submit(
+                ItemAnalysisJob(
+                    keyword="九号N1 90",
+                    task_name="九号捡漏-N190",
+                    decision_mode="ai",
+                    analyze_images=False,
+                    prompt_text="prompt",
+                    keyword_rules=(),
+                    final_record={
+                        "item_info": {"item_id": item_id, "title": item_id, "price": price},
+                        "seller_info": {},
+                    },
+                    seller_id=None,
+                    zhima_credit_text=None,
+                    registration_duration_text="",
+                    model_check=True,
+                )
+            )
+        await dispatcher.join()
+
+    asyncio.run(run())
+    assert [record["item_info"]["item_id"] for record in saved_records] == ["car-a", "car-b"]
+    second = saved_records[1]["price_insight"]
+    assert second["comparison_verified"] is True
+    assert second["market_median_price"] == 4900
+    # 未通过型号校验的 50 元配件没有进入样本
+    assert second["market_avg_price"] == 4900
+
+
 def test_dispatcher_drops_items_when_model_check_is_skipped(monkeypatch):
     """校验被跳过时不能当通过，否则型号不符的商品会静默入库。"""
     saved_records = []

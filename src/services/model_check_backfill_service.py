@@ -76,7 +76,7 @@ def _push_recent(line: str) -> None:
 # ------------------------------------------------------------------ 取数与删除
 
 def fetch_candidates(result_filename: Optional[str] = None) -> List[sqlite3.Row]:
-    """取还没判过的结果条目。判过的（表里有记录）直接跳过。"""
+    """取需要重判的结果条目：没判过、判成 null、输入指纹对不上的都算待判。"""
     with sqlite_connection() as conn:
         if result_filename:
             rows = conn.execute(
@@ -90,13 +90,32 @@ def fetch_candidates(result_filename: Optional[str] = None) -> List[sqlite3.Row]
                 " FROM result_items ORDER BY id"
             ).fetchall()
 
+    prompt = model_check_service.load_prompt()
     pending = []
     for row in rows:
         item_id = str(row["item_id"] or "").strip()
         if not item_id:
             continue
-        task_id = model_check_service.resolve_task_id(str(row["task_name"] or ""))
-        if model_check_service.load_check(item_id, task_id) is not None:
+        task_name = str(row["task_name"] or "")
+        target = str(row["keyword"] or "")
+        # 指纹要和 check_item 用同一份算法、同一套输入，否则复查会误判缓存有效
+        try:
+            record = normalize_record(json.loads(row["raw_json"]))
+            item = record.get("item_info", {}) or {}
+            title = str(item.get("title") or "")
+            description = str(item.get("description") or "")
+        except Exception:  # noqa: BLE001
+            pending.append(row)
+            continue
+        fingerprint = model_check_service.compute_fingerprint(
+            task_name=task_name,
+            target=target,
+            title=title,
+            description=description,
+            prompt=prompt.replace("{{TARGET}}", target),
+        )
+        task_id = model_check_service.resolve_task_id(task_name)
+        if model_check_service.load_check(item_id, task_id, fingerprint) is not None:
             continue
         pending.append(row)
     return pending

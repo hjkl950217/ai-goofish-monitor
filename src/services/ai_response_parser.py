@@ -9,6 +9,36 @@ class EmptyAIResponseError(ValueError):
     """AI 返回了空内容。"""
 
 
+def validate_analysis_result(result: dict) -> None:
+    """检查分析结构，以及明确硬条件和最终推荐是否自相矛盾。"""
+    required = {"prompt_version", "is_recommended", "reason", "risk_tags", "criteria_analysis"}
+    if not isinstance(result, dict) or not required.issubset(result):
+        raise ValueError("分析结果缺少必需字段")
+    criteria = result["criteria_analysis"]
+    if not isinstance(criteria, dict) or not criteria or "seller_type" not in criteria:
+        raise ValueError("criteria_analysis必须为非空对象且包含seller_type")
+    if not isinstance(result["is_recommended"], bool):
+        raise ValueError("is_recommended必须为布尔值")
+    if not isinstance(result["reason"], str) or not isinstance(result["prompt_version"], str):
+        raise ValueError("reason和prompt_version必须为字符串")
+    if not isinstance(result["risk_tags"], list) or not all(isinstance(tag, str) for tag in result["risk_tags"]):
+        raise ValueError("risk_tags必须为字符串数组")
+
+    hard = result.get("hard_requirements", {})
+    if not isinstance(hard, dict):
+        raise ValueError("hard_requirements必须为对象")
+    for name, entry in hard.items():
+        if not isinstance(entry, dict) or entry.get("status") not in {"PASS", "FAIL", "UNKNOWN", "NEEDS_MANUAL_CHECK"}:
+            raise ValueError(f"硬条件{name}缺少有效状态")
+        if result["is_recommended"] and entry["status"] != "PASS":
+            raise ValueError(f"硬条件{name}未通过，不能推荐")
+
+    # 兼容旧标准：model_chip一直表示目标型号，不把电池、成色等参考项一律否决。
+    model = criteria.get("model_chip")
+    if result["is_recommended"] and isinstance(model, dict) and model.get("status") in {"FAIL", "UNKNOWN", "NEEDS_MANUAL_CHECK"}:
+        raise ValueError("目标型号未通过，不能推荐")
+
+
 def extract_ai_response_content(response: Any) -> str:
     """从不同形态的 AI 响应中提取文本内容。"""
     if response is None:

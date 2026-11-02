@@ -13,6 +13,7 @@ from openai import AsyncOpenAI
 from src.ai_message_builder import (
     build_analysis_text_prompt,
     build_user_message_content,
+    serialize_analysis_data,
 )
 from src.infrastructure.config.settings import AISettings
 from src.infrastructure.config.env_manager import env_manager
@@ -202,7 +203,7 @@ class AIClient:
 
     def _build_messages(self, product_data: Dict, image_paths: List[str], prompt_text: str) -> List[Dict]:
         """构建 AI 消息"""
-        product_json = json.dumps(product_data, ensure_ascii=False, indent=2)
+        product_json = serialize_analysis_data(product_data)
         image_data_urls: List[str] = []
         for path in image_paths:
             base64_img = self.encode_image(path)

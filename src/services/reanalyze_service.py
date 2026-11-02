@@ -157,7 +157,7 @@ async def run_analyze(
     from src.ai_handler import cleanup_task_images, download_all_images, get_ai_analysis
 
     state = load_state()
-    task_name, prompt = build_prompt(None)
+    prompts: Dict[str, tuple[str, str]] = {}
 
     targets = _select_targets(state, scope, only_ids, result_filename)
     if limit:
@@ -175,7 +175,7 @@ async def run_analyze(
         "finished_at": None,
         "recent": [],
     })
-    _push_recent(f"任务={task_name}，prompt 长度={len(prompt)}")
+    _push_recent("逐条使用商品所属任务的分析标准")
 
     if not targets:
         _status.update({
@@ -200,6 +200,12 @@ async def run_analyze(
             image_paths: List[str] = []
             result = None
             try:
+                source_task = str(record.get("task_name") or "").strip()
+                if not source_task:
+                    raise RuntimeError("商品缺少所属任务，不能借用其他任务的分析标准")
+                if source_task not in prompts:
+                    prompts[source_task] = build_prompt(source_task)
+                _, prompt = prompts[source_task]
                 if urls:
                     image_paths = await download_all_images(item_id, urls, task_name="backfill")
                 result = await get_ai_analysis(record, image_paths, prompt)

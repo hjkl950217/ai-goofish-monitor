@@ -1,4 +1,14 @@
+from pathlib import Path
+
 from src.services.prompt_defaults import ensure_default_prompts
+
+
+def test_model_check_prompt_copies_are_identical():
+    """运行时提示词和内置兜底必须一字不差，否则缓存指纹和判定口径会分家。"""
+    root = Path(__file__).resolve().parents[2]
+    runtime = root / "prompts" / "model_check_prompt.txt"
+    default = root / "src" / "prompt_defaults" / "model_check_prompt.txt"
+    assert runtime.read_text(encoding="utf-8") == default.read_text(encoding="utf-8")
 
 
 def test_ensure_default_prompts_creates_missing_files(tmp_path, monkeypatch):

@@ -19,6 +19,47 @@ def test_fresh_db_writes_schema_version(tmp_path):
     cols = [r[1] for r in conn.execute("PRAGMA table_info(result_items)")]
     assert "initial_price" in cols
     assert "status" in cols
+    check_cols = [r[1] for r in conn.execute("PRAGMA table_info(item_model_checks)")]
+    assert "input_fingerprint" in check_cols
+    conn.close()
+
+
+def test_item_model_checks_fingerprint_migration_is_repeatable(tmp_path):
+    """v2 老库升级：加指纹列、保留旧记录，重复执行不报错。"""
+    path = str(tmp_path / "v2.db")
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        "CREATE TABLE item_model_checks ("
+        " item_id TEXT NOT NULL,"
+        " task_id INTEGER NOT NULL,"
+        " matched INTEGER,"
+        " reason TEXT,"
+        " checked_at TEXT NOT NULL,"
+        " PRIMARY KEY (item_id, task_id)"
+        ")"
+    )
+    conn.execute(
+        "INSERT INTO item_model_checks (item_id, task_id, matched, reason, checked_at)"
+        " VALUES ('1', 0, 1, '旧记录', '2026-10-01T00:00:00')"
+    )
+    conn.execute("PRAGMA user_version = 2")
+    conn.commit()
+
+    init_schema(conn)
+
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(item_model_checks)")]
+    assert "input_fingerprint" in cols
+    row = conn.execute(
+        "SELECT matched, reason, input_fingerprint FROM item_model_checks WHERE item_id = '1'"
+    ).fetchone()
+    assert row["matched"] == 1
+    assert row["reason"] == "旧记录"
+    assert row["input_fingerprint"] is None
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
+
+    init_schema(conn)  # 重复执行不报错、不丢数据
+    assert conn.execute("SELECT COUNT(1) FROM item_model_checks").fetchone()[0] == 1
     conn.close()
 
 

@@ -13,7 +13,7 @@ from src.infrastructure.persistence.storage_names import DEFAULT_DATABASE_PATH
 
 
 BUSY_TIMEOUT_MS = 5000
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _config_hint_shown = False
 
@@ -116,6 +116,7 @@ SCHEMA_STATEMENTS = (
         matched INTEGER,
         reason TEXT,
         checked_at TEXT NOT NULL,
+        input_fingerprint TEXT,
         PRIMARY KEY (item_id, task_id)
     )
     """,
@@ -181,8 +182,29 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
         _migrate_result_items_refresh(conn)
     if version < 2:
         _migrate_tasks_criteria(conn)
+    if version < 3:
+        _migrate_item_model_checks_fingerprint(conn)
     if version < SCHEMA_VERSION:
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+
+
+def _migrate_item_model_checks_fingerprint(conn: sqlite3.Connection) -> None:
+    """给 item_model_checks 加输入指纹列（仅执行一次）。
+
+    只加列不动数据：旧记录保留，没有指纹的按无效缓存处理，商品会被重判。
+    """
+    row = conn.execute(
+        "SELECT value FROM app_metadata WHERE key = 'migration:item_model_checks_fingerprint'"
+    ).fetchone()
+    if row is not None:
+        return
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(item_model_checks)").fetchall()]
+    if "input_fingerprint" not in cols:
+        conn.execute("ALTER TABLE item_model_checks ADD COLUMN input_fingerprint TEXT")
+    conn.execute(
+        "INSERT OR REPLACE INTO app_metadata(key, value) VALUES"
+        " ('migration:item_model_checks_fingerprint', 'done')"
+    )
 
 
 def _migrate_tasks_criteria(conn: sqlite3.Connection) -> None:

@@ -29,11 +29,13 @@ from src.config import (
 from src.ai_message_builder import (
     build_analysis_text_prompt,
     build_user_message_content,
+    serialize_analysis_data,
 )
 from src.services.ai_response_parser import (
     EmptyAIResponseError,
     extract_ai_response_content,
     parse_ai_response_json,
+    validate_analysis_result,
 )
 from src.services.ai_request_compat import (
     CHAT_COMPLETIONS_API_MODE,
@@ -249,49 +251,22 @@ def encode_image_to_base64(image_path):
 
 
 FORMAT_RETRY_NOTE = (
-    "上一次输出未通过格式校验。请重新输出：只返回一个 JSON 对象，不要任何解释文字。"
+    "上一次输出未通过校验。请重新输出：只返回一个 JSON 对象，不要任何解释文字。"
     "必须包含 prompt_version、is_recommended（布尔值）、reason、risk_tags（数组）、"
-    "criteria_analysis（非空对象，且包含 seller_type）。"
+    "criteria_analysis（非空对象，且包含 seller_type）；"
+    "硬性条件写入 hard_requirements，每项是 {status: PASS/FAIL/UNKNOWN, evidence}。"
+    "任何硬性条件为 FAIL 或 UNKNOWN 时 is_recommended 必须为 false。"
     "务必保证 JSON 完整闭合，不要被截断。"
 )
 
 
 def validate_ai_response_format(parsed_response):
-    """验证AI响应的格式是否符合预期结构"""
-    required_fields = [
-        "prompt_version",
-        "is_recommended",
-        "reason",
-        "risk_tags",
-        "criteria_analysis"
-    ]
-
-    # 检查顶层字段
-    for field in required_fields:
-        if field not in parsed_response:
-            safe_print(f"   [AI分析] 警告：响应缺少必需字段 '{field}'")
-            return False
-
-    # 检查criteria_analysis是否为字典且不为空
-    criteria_analysis = parsed_response.get("criteria_analysis", {})
-    if not isinstance(criteria_analysis, dict) or not criteria_analysis:
-        safe_print("   [AI分析] 警告：criteria_analysis必须是非空字典")
+    """验证响应结构，并拒绝明确硬条件与推荐结论矛盾的结果。"""
+    try:
+        validate_analysis_result(parsed_response)
+    except (ValueError, TypeError) as exc:
+        safe_print(f"   [AI分析] 警告：{exc}")
         return False
-
-    # 检查seller_type字段（所有商品都需要）
-    if "seller_type" not in criteria_analysis:
-        safe_print("   [AI分析] 警告：criteria_analysis缺少必需字段 'seller_type'")
-        return False
-
-    # 检查数据类型
-    if not isinstance(parsed_response.get("is_recommended"), bool):
-        safe_print("   [AI分析] 警告：is_recommended字段不是布尔类型")
-        return False
-
-    if not isinstance(parsed_response.get("risk_tags"), list):
-        safe_print("   [AI分析] 警告：risk_tags字段不是列表类型")
-        return False
-
     return True
 
 
@@ -399,7 +374,7 @@ async def get_ai_analysis(product_data, image_paths=None, prompt_text=""):
         safe_print("   [AI分析] 错误：未提供AI分析所需的prompt文本。")
         return None
 
-    product_details_json = json.dumps(product_data, ensure_ascii=False, indent=2)
+    product_details_json = serialize_analysis_data(product_data)
     system_prompt = prompt_text
 
     if AI_DEBUG_MODE:

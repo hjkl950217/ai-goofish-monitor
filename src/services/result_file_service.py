@@ -31,6 +31,11 @@ def enrich_records_with_price_insight(records: list[dict], filename: str) -> lis
     for record in records:
         info = record.get("item_info", {}) or {}
         clone = dict(record)
+        existing = record.get("price_insight")
+        # 分析时已用核实过的可比样本算出的估价优先；只在缺失或未核实时才用快照重算。
+        if isinstance(existing, dict) and existing.get("comparison_verified") is True:
+            enriched.append(clone)
+            continue
         clone["price_insight"] = build_item_price_context(
             snapshots,
             item_id=str(info.get("item_id") or ""),

@@ -1,7 +1,24 @@
 """
 AI 请求消息构造辅助函数
 """
+import json
 from typing import Dict, List, Union
+
+
+def serialize_analysis_data(product_data: dict) -> str:
+    """只发送本次分析的事实，不让旧结论和未核实的价格参考影响重判。"""
+    payload = {key: value for key, value in product_data.items() if key != "ai_analysis"}
+    for key in ("price_reference", "price_insight", "价格参考"):
+        reference = payload.get(key)
+        # 重分析时价格参考可能已过期，不能沿用旧结论生成时的估价。
+        if reference is not None and (
+            "ai_analysis" in product_data
+            or not isinstance(reference, dict)
+            or reference.get("comparison_verified") is not True
+        ):
+            payload.pop(key)
+            payload["price_reference_status"] = "缺少当前已核实的可比样本，不能据搜索均价判定高低价"
+    return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
 TEXT_ONLY_ANALYSIS_NOTE = (

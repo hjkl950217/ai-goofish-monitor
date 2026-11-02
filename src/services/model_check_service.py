@@ -1,15 +1,16 @@
 """型号判断：判断商品是不是任务搜索的目标型号。
 
 在「抓详情 → AI 分析」之间插入。判据是任务的搜索关键字。
-结果按 (item_id, task_id) 落到 item_model_checks 表，同一商品同一任务只判一次。
-判断不了（AI 报错、返回 null）一律放行，不能让型号环节变成丢数据的单点。
+结果按 (item_id, task_id) 落到 item_model_checks 表，缓存按输入指纹判有效，
+输入（任务名、目标、标题、描述、提示词）一变或结论是 null 就重判。
+判不出或调用失败一律不放行，由调用方决定跳过入库。
 """
 
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
-import re
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -67,22 +68,22 @@ def _get_client() -> AIClient:
     return _client_state["client"]
 
 
-# ------------------------------------------------------------------ 预筛
+# ------------------------------------------------------------------ 缓存指纹
 
-def prefilter_passes(text: str) -> bool:
-    """本地正则预筛，只做放行不做拒绝。
+def compute_fingerprint(*, task_name: str, target: str, title: str,
+                        description: str, prompt: str) -> str:
+    """输入指纹：任务名、目标、标题、描述、实际提示词任一变化即失效旧缓存。
 
-    命中说明文本里明确出现了目标写法，直接放行省一次 AI 调用；
-    没命中不代表不是，继续交给模型判断。正则为空则完全跳过预筛。
+    check_item 和历史复查共用这一份算法，两边算出的指纹必须一致。
     """
-    pattern = _env("MODEL_CHECK_PREFILTER_REGEX")
-    if not pattern:
-        return False
-    try:
-        compiled = re.compile(pattern, re.IGNORECASE)
-    except re.error:
-        return False
-    return compiled.search(text) is not None
+    payload = "\n".join((
+        str(task_name or ""),
+        str(target or ""),
+        str(title or ""),
+        str(description or ""),
+        str(prompt or ""),
+    ))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 # ------------------------------------------------------------------ 落表
@@ -95,31 +96,40 @@ def resolve_task_id(task_name: str) -> int:
     return int(row["id"]) if row else -1
 
 
-def load_check(item_id: str, task_id: int) -> Optional[dict]:
-    """有记录就返回，没有返回 None。matched 可能是 None（判断不了）。"""
+def load_check(item_id: str, task_id: int,
+               fingerprint: Optional[str] = None) -> Optional[dict]:
+    """缓存有效才返回，否则 None。
+
+    三类都算无效：没记录、结论是 null（判不出）、指纹对不上
+    （含升级前没有指纹的旧记录）。
+    """
     with sqlite_connection() as conn:
         row = conn.execute(
-            "SELECT matched, reason FROM item_model_checks"
+            "SELECT matched, reason, input_fingerprint FROM item_model_checks"
             " WHERE item_id = ? AND task_id = ?",
             (item_id, task_id),
         ).fetchone()
     if row is None:
         return None
-    matched = None if row["matched"] is None else bool(row["matched"])
-    return {"matched": matched, "reason": row["reason"] or ""}
+    if row["matched"] is None:
+        return None
+    if fingerprint is not None and row["input_fingerprint"] != fingerprint:
+        return None
+    return {"matched": bool(row["matched"]), "reason": row["reason"] or ""}
 
 
 def save_check(item_id: str, task_id: int, matched: Optional[bool], reason: str,
-               checked_at: str) -> None:
+               checked_at: str, input_fingerprint: Optional[str] = None) -> None:
     stored = None if matched is None else (1 if matched else 0)
     with sqlite_connection() as conn:
         conn.execute(
             """
             INSERT OR REPLACE INTO item_model_checks
-                (item_id, task_id, matched, reason, checked_at)
-            VALUES (?, ?, ?, ?, ?)
+                (item_id, task_id, matched, reason, checked_at, input_fingerprint)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (str(item_id), int(task_id), stored, reason, checked_at),
+            (str(item_id), int(task_id), stored, reason, checked_at,
+             input_fingerprint),
         )
         conn.commit()
 
@@ -147,16 +157,18 @@ async def check_item(
         return {"matched": None, "reason": "缺少商品 ID", "source": "skipped"}
 
     task_id = resolve_task_id(task_name)
-    cached = load_check(item_id, task_id)
+    prompt = load_prompt().replace("{{TARGET}}", target or "")
+    fingerprint = compute_fingerprint(
+        task_name=task_name,
+        target=target,
+        title=title,
+        description=description,
+        prompt=prompt,
+    )
+    cached = load_check(item_id, task_id, fingerprint)
     if cached is not None:
         return {**cached, "source": "cache"}
 
-    text = f"{title}\n{description}".strip()
-    if prefilter_passes(text):
-        save_check(item_id, task_id, True, "本地预筛命中", datetime.now().isoformat(timespec="seconds"))
-        return {"matched": True, "reason": "本地预筛命中", "source": "prefilter"}
-
-    prompt = load_prompt().replace("{{TARGET}}", target or "")
     content = f"{prompt}\n\n商品标题：{title or '无'}\n商品描述：{description or '无'}"
     # 单次网络抖动不该直接判成不通过，失败后重试一次
     for attempt in range(2):
@@ -181,9 +193,10 @@ async def check_item(
             if attempt == 0:
                 await asyncio.sleep(1)
 
-    # 调用失败不算判断结果，不写缓存，下次还能重判
-    if source != "error":
-        save_check(item_id, task_id, matched, reason, datetime.now().isoformat(timespec="seconds"))
+    # 调用失败、返回 null 都不算判断结果，不写缓存，下次还能重判
+    if source != "error" and matched is not None:
+        save_check(item_id, task_id, matched, reason,
+                   datetime.now().isoformat(timespec="seconds"), fingerprint)
     return {"matched": matched, "reason": reason, "source": source}
 
 

@@ -297,13 +297,14 @@ def build_item_price_context(
     item_id: str,
     current_price: Optional[float],
     market_snapshots: Optional[list[dict]] = None,
+    comparison_verified: bool = False,
 ) -> dict:
     if not item_id:
-        return {"observation_count": 0, "deal_score": None, "deal_label": "暂无数据"}
+        return {"observation_count": 0, "deal_score": None, "deal_label": "暂无可靠数据", "comparison_verified": False}
 
     item_snapshots = [record for record in snapshots if str(record.get("item_id")) == str(item_id)]
     if not item_snapshots:
-        return {"observation_count": 0, "deal_score": None, "deal_label": "暂无数据"}
+        return {"observation_count": 0, "deal_score": None, "deal_label": "暂无可靠数据", "comparison_verified": False}
 
     latest_item_snapshot = item_snapshots[-1]
     price_now = current_price if current_price is not None else parse_price_value(latest_item_snapshot.get("price"))
@@ -318,16 +319,20 @@ def build_item_price_context(
     market_avg = market_summary.get("avg_price")
     market_median = market_summary.get("median_price")
 
-    score = 50
-    if price_now is not None and market_avg:
-        score += int(((market_avg - price_now) / market_avg) * 60)
-    if price_now is not None and historical_prices:
-        historical_max = max(historical_prices)
+    if comparison_verified and price_now is not None:
+        score = 50
+        if market_avg:
+            score += int(((market_avg - price_now) / market_avg) * 60)
+        historical_max = max(historical_prices) if historical_prices else 0
         if historical_max > 0:
             score += int(((historical_max - price_now) / historical_max) * 20)
-        if math.isclose(price_now, min(historical_prices), rel_tol=0.001):
-            score += 8
-    score = max(0, min(100, score))
+            if math.isclose(price_now, min(historical_prices), rel_tol=0.001):
+                score += 8
+        score = max(0, min(100, score))
+        deal_score, deal_label = score, _resolve_deal_label(score)
+    else:
+        # 没有确认同类的样本时不给分，避免用配件或不同型号的均价冒充行情。
+        deal_score, deal_label = None, "暂无可靠数据"
 
     previous_price = historical_prices[-2] if len(historical_prices) >= 2 else None
     change_amount = None if previous_price is None or price_now is None else round(price_now - previous_price, 2)
@@ -348,8 +353,9 @@ def build_item_price_context(
         "market_median_price": market_median,
         "price_change_amount": change_amount,
         "price_change_percent": change_percent,
-        "deal_score": score,
-        "deal_label": _resolve_deal_label(score),
+        "deal_score": deal_score,
+        "deal_label": deal_label,
+        "comparison_verified": comparison_verified,
     }
 
 
@@ -359,26 +365,38 @@ def build_market_reference(
     item: dict,
     current_market_items: list[dict],
     historical_snapshots: list[dict],
+    comparable_item_ids: Optional[set[str]] = None,
 ) -> dict:
+    """只统计已确认可与本商品比较的样本；没给集合时不给市场估价。"""
+    allowed = comparable_item_ids or set()
     current_market_records = []
     for market_item in current_market_items:
+        if str(market_item.get("item_id") or "") not in allowed:
+            continue
         price = parse_price_value(market_item.get("price"))
         if price is None:
             continue
         current_market_records.append({"price": price})
 
     market_snapshot = _summarize_prices(current_market_records)
-    history_summary = _summarize_prices(_dedupe_latest(historical_snapshots, "item_id"))
+    allowed_history = [
+        record for record in historical_snapshots
+        if str(record.get("item_id") or "") in allowed
+    ]
+    history_summary = _summarize_prices(_dedupe_latest(allowed_history, "item_id"))
+    verified = len(current_market_records) >= 2
     item_context = build_item_price_context(
-        historical_snapshots,
+        allowed_history,
         item_id=str(item.get("item_id") or ""),
         current_price=parse_price_value(item.get("price")),
+        comparison_verified=verified,
     )
     return {
         "当前搜索样本": market_snapshot,
         "历史价格概览": history_summary,
         "本商品价格位置": item_context,
         "关键词": keyword,
+        "comparison_verified": verified,
     }
 
 
