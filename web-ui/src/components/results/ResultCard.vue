@@ -47,6 +47,7 @@ const hasMatchScore = typeof rawMatchScore === 'number' && Number.isFinite(rawMa
 const matchScore = hasMatchScore ? Math.max(0, Math.min(100, rawMatchScore)) : 0
 const isHidden = computed(() => props.item._effective_hidden === true || props.item._status === 'hidden')
 const isExpired = computed(() => props.item._status === 'expired')
+const offlineLabel = computed(() => ((info.status || '').includes('卖') ? t('results.card.soldOut') : t('results.card.priceOffline')))
 const initialPrice = props.item._initial_price
 const currentPrice = props.item._current_price
 const priceDelta = computed(() => {
@@ -238,7 +239,7 @@ async function onRefresh() {
 
 <template>
   <!-- 半透明 + 背景模糊会让每张卡片各自成层，几百张时滚动只重绘不合成，这里用纯白底代替 -->
-  <Card class="group flex flex-col h-full border-none shadow-glass hover:shadow-card-hover transition-shadow duration-300 rounded-2xl overflow-hidden bg-white" :class="{ 'opacity-50': isHidden }">
+  <Card class="group flex flex-col h-full border-none shadow-glass hover:shadow-card-hover transition-shadow duration-300 rounded-2xl overflow-hidden bg-white" :class="{ 'opacity-50': isHidden, 'opacity-60 grayscale': isExpired && !isHidden }">
     <!-- Image Header -->
     <div class="relative aspect-[4/3] overflow-hidden">
       <div class="absolute inset-0 bg-slate-200 animate-pulse" v-if="!imageUrl"></div>
@@ -256,7 +257,7 @@ async function onRefresh() {
       <!-- Overlays -->
       <div class="absolute top-3 left-3 flex gap-2">
         <Badge v-if="isExpired" variant="secondary" class="bg-slate-700/85 text-white border-none backdrop-blur-md shadow-sm">
-          {{ t('results.card.priceOffline') }}
+          {{ offlineLabel }}
         </Badge>
         <Badge v-if="isRecommended && !isHidden" variant="default" class="bg-emerald-500/90 backdrop-blur-md border-none shadow-sm">
           {{ t('results.card.curated') }}
@@ -343,18 +344,15 @@ async function onRefresh() {
         <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-slate-600">
           <span class="flex items-center gap-1.5 min-w-0">
             <CalendarDays class="w-3.5 h-3.5 shrink-0 text-slate-400" />
-            <span class="min-w-0 truncate text-slate-400">{{ t('results.card.publishTime') }}</span>
-            <span class="shrink-0 font-semibold">{{ publishTime || '—' }}</span>
+            <span class="shrink-0 font-semibold" :title="t('results.card.publishTime')">{{ publishTime || '—' }}</span>
           </span>
           <span class="flex items-center gap-1.5 min-w-0">
             <MapPin class="w-3.5 h-3.5 shrink-0 text-slate-400" />
-            <span class="shrink-0 text-slate-400">{{ t('results.card.shipsFrom') }}</span>
-            <span class="truncate font-semibold">{{ hasValue(shipRegion) ? shipRegion : '—' }}</span>
+            <span class="truncate font-semibold" :title="t('results.card.shipsFrom')">{{ hasValue(shipRegion) ? shipRegion : '—' }}</span>
           </span>
           <span class="flex items-center gap-1.5 min-w-0">
             <Eye class="w-3.5 h-3.5 shrink-0 text-slate-400" />
-            <span class="shrink-0 text-slate-400">{{ t('results.card.views') }}</span>
-            <span class="truncate font-semibold">{{ hasValue(viewCount) ? viewCount : '—' }}</span>
+            <span class="truncate font-semibold" :title="t('results.card.views')">{{ hasValue(viewCount) ? viewCount : '—' }}</span>
           </span>
           <span class="flex items-center gap-1.5 min-w-0">
             <Heart class="w-3.5 h-3.5 shrink-0 text-rose-400" />

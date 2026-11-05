@@ -70,6 +70,8 @@ def test_is_offline_status():
     assert svc.is_offline_status("在线") is False
     assert svc.is_offline_status("已下架") is True
     assert svc.is_offline_status("宝贝已售出") is True
+    assert svc.is_offline_status("商品卖掉了") is True
+    assert svc.is_offline_status("已卖掉") is True
     assert svc.is_offline_status("") is False
 
 

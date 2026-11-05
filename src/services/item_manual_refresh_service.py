@@ -25,7 +25,7 @@ from src.scraper import (
     _resolve_browser_channel,
     prepare_chromium_launch_args,
 )
-from src.services.item_refresh_service import parse_detail_price
+from src.services.item_refresh_service import is_offline_status, parse_detail_price
 
 DETAIL_PATTERN = "mtop.taobao.idle.pc.detail"
 DETAIL_TIMEOUT_MS = 25000
@@ -174,16 +174,19 @@ def _write_back(row, fields: Dict[str, Any]) -> None:
     if price is not None:
         info["price"] = f"¥{price:g}"
     raw = json.dumps(record, ensure_ascii=False)
+    offline = is_offline_status(str(fields.get("status") or ""))
     with sqlite_connection() as conn:
         conn.execute(
             "UPDATE result_items SET title = ?, price = ?, price_display = ?,"
-            " raw_json = ?, last_checked_at = ? WHERE id = ?",
+            " raw_json = ?, last_checked_at = ?,"
+            " status = CASE WHEN ? THEN 'expired' ELSE status END WHERE id = ?",
             (
                 str(info.get("title") or ""),
                 price if price is not None else old_price,
                 str(info.get("price") or ""),
                 raw,
                 now,
+                1 if offline else 0,
                 row["id"],
             ),
         )

@@ -21,7 +21,7 @@ REFRESH_MAX_PER_RUN = 20
 
 # itemDO.itemStatusStr 命中这些词才判定商品不在售。
 # 用白名单式黑名单：闲鱼新增状态文案时宁可漏判，也不要把在售商品标成下架。
-OFFLINE_STATUS_TEXTS = ("已下架", "已售出", "已卖出", "已删除", "已失效")
+OFFLINE_STATUS_TEXTS = ("已下架", "已售出", "已卖出", "已删除", "已失效", "卖掉了", "已卖掉")
 
 
 def build_content_fingerprint(price_display: str, description: str) -> str:

@@ -12,6 +12,7 @@ from src.infrastructure.persistence.record_keys import normalize_record
 from src.infrastructure.persistence.sqlite_bootstrap import bootstrap_sqlite_storage
 from src.infrastructure.persistence.sqlite_connection import sqlite_connection
 from src.infrastructure.persistence.storage_names import build_result_filename
+from src.services.item_refresh_service import is_offline_status
 from src.services.price_history_service import parse_price_value
 from src.services.result_blacklist_service import (
     match_blacklist_keywords,
@@ -132,6 +133,11 @@ def _load_blacklist_keywords_from_conn(conn, filename: str) -> list[str]:
 
 def _decorate_record_visibility(record: dict, status: str | None, blacklist_keywords: list[str]) -> dict:
     matched_keywords = match_blacklist_keywords(record, blacklist_keywords)
+    # 旧记录 status 还是 active，但详情页文案已经是已售；读取时按已售处理
+    if status == "active" and is_offline_status(
+        str((record.get("item_info") or {}).get("status") or "")
+    ):
+        status = "expired"
     hidden_reason = None
     if status == "expired":
         hidden_reason = "expired"
@@ -143,7 +149,8 @@ def _decorate_record_visibility(record: dict, status: str | None, blacklist_keyw
     record["_status"] = status or "active"
     record["_matched_blacklist_keywords"] = matched_keywords
     record["_hidden_reason"] = hidden_reason
-    record["_effective_hidden"] = hidden_reason is not None
+    # 已售只是标注，不算屏蔽；前端靠 _status/_hidden_reason 展示
+    record["_effective_hidden"] = hidden_reason in ("manual", "rule")
     return record
 
 
@@ -201,6 +208,8 @@ def _load_filtered_records_from_conn(
                 records.append(decorated)
         elif include_hidden or _is_record_visible(decorated):
             records.append(decorated)
+    # active 在前、已售/屏蔽在后；组内保持 SQL 原有顺序
+    records.sort(key=lambda r: r.get("_status") != "active")
     return records
 
 
@@ -585,6 +594,8 @@ def load_visible_result_item_ids(filename: str) -> set[str]:
         )
     item_ids: set[str] = set()
     for record in visible_records:
+        if record.get("_status") != "active":
+            continue
         product = record.get("item_info", {}) or {}
         item_id = str(product.get("item_id") or "").strip()
         if item_id:
