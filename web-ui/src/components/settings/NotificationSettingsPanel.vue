@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { BellRing, Radio, ShieldCheck, Send, TestTube2, Trash2, Webhook } from 'lucide-vue-next'
+import { BellRing, Eye, EyeOff, Radio, ShieldCheck, Send, TestTube2, Trash2, Webhook } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,6 +28,7 @@ const { t } = useI18n()
 const initialValues = reactive<NotificationSettingsUpdate>({})
 const form = reactive<NotificationSettingsUpdate>({})
 const secretConfigured = reactive<Record<string, boolean>>({})
+const revealed = reactive<Record<string, boolean>>({})
 const clearedFields = reactive<Record<string, boolean>>({})
 const testResults = reactive<Record<string, { success: boolean; message: string; label: string }>>({})
 const testingChannel = ref<string | null>(null)
@@ -64,16 +65,15 @@ function syncFromSettings(settings: NotificationSettings) {
   initialValues.WEBHOOK_QUERY_PARAMETERS = settings.WEBHOOK_QUERY_PARAMETERS ?? ''
   initialValues.WEBHOOK_BODY = settings.WEBHOOK_BODY ?? ''
   initialValues.PCURL_TO_MOBILE = settings.PCURL_TO_MOBILE ?? true
+  initialValues.PUSHPLUS_TOKEN = settings.PUSHPLUS_TOKEN ?? ''
+  initialValues.GOTIFY_TOKEN = settings.GOTIFY_TOKEN ?? ''
+  initialValues.BARK_URL = settings.BARK_URL ?? ''
+  initialValues.WX_BOT_URL = settings.WX_BOT_URL ?? ''
+  initialValues.TELEGRAM_BOT_TOKEN = settings.TELEGRAM_BOT_TOKEN ?? ''
+  initialValues.WEBHOOK_URL = settings.WEBHOOK_URL ?? ''
+  initialValues.WEBHOOK_HEADERS = settings.WEBHOOK_HEADERS ?? ''
 
-  Object.assign(form, initialValues, {
-    BARK_URL: '',
-    GOTIFY_TOKEN: '',
-    WX_BOT_URL: '',
-    TELEGRAM_BOT_TOKEN: '',
-    WEBHOOK_URL: '',
-    WEBHOOK_HEADERS: '',
-    PUSHPLUS_TOKEN: '',
-  })
+  Object.assign(form, initialValues)
 
   secretConfigured.BARK_URL = !!settings.BARK_URL_SET
   secretConfigured.GOTIFY_TOKEN = !!settings.GOTIFY_TOKEN_SET
@@ -100,6 +100,10 @@ const webhookHeadersPlaceholder = computed(() => `${t('notifyPanel.webhook.heade
 const webhookQueryPlaceholder = computed(() => `${t('notifyPanel.webhook.queryPlaceholder')}${WEBHOOK_QUERY_EXAMPLE}`)
 const webhookBodyPlaceholder = computed(() => `${t('notifyPanel.webhook.bodyPlaceholder')}${WEBHOOK_BODY_EXAMPLE}`)
 const webhookTemplateVariables = WEBHOOK_TEMPLATE_VARIABLES
+
+function toggleReveal(field: string) {
+  revealed[field] = !revealed[field]
+}
 
 function updateSecretField(field: keyof NotificationSettingsUpdate, value: string) {
   mutableForm[field as string] = value
@@ -260,12 +264,12 @@ function resolveChannelBadge(channel: ChannelKey) {
             </div>
           </div>
         </div>
-        <div class="app-surface-subtle bg-slate-900/95 p-4 text-slate-100">
-          <div class="flex items-center gap-2 text-sm font-semibold">
-            <ShieldCheck class="h-4 w-4 text-emerald-300" />
+        <div class="app-surface-subtle p-4">
+          <div class="flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <ShieldCheck class="h-4 w-4 text-emerald-500" />
             {{ t('notifyPanel.configurationNotes') }}
           </div>
-          <p class="mt-2 text-sm leading-6 text-slate-300">{{ t('notifyPanel.configurationNotesDescription') }}</p>
+          <p class="mt-2 text-sm leading-6 text-slate-500">{{ t('notifyPanel.configurationNotesDescription') }}</p>
         </div>
       </CardContent>
     </Card>
@@ -304,7 +308,7 @@ function resolveChannelBadge(channel: ChannelKey) {
       <Card class="app-surface-subtle overflow-hidden border-l-4 border-l-green-500">
         <CardHeader><CardTitle>PushPlus</CardTitle><CardDescription>{{ t('notifyPanel.pushplus.description') }}</CardDescription></CardHeader>
         <CardContent class="grid gap-4 md:grid-cols-2">
-          <div class="grid gap-2"><Label>Token</Label><Input type="password" :model-value="form.PUSHPLUS_TOKEN ?? ''" :placeholder="t('notifyPanel.secretKeepPlaceholder')" @update:model-value="(value) => updateSecretField('PUSHPLUS_TOKEN', String(value))" /></div>
+          <div class="grid gap-2"><Label>Token</Label><div class="relative"><Input :type="revealed.PUSHPLUS_TOKEN ? 'text' : 'password'" class="pr-10" :model-value="form.PUSHPLUS_TOKEN ?? ''" placeholder="Token" @update:model-value="(value) => updateSecretField('PUSHPLUS_TOKEN', String(value))" /><button type="button" class="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-500 hover:text-slate-800" :aria-label="t(revealed.PUSHPLUS_TOKEN ? 'notifyPanel.hideSecret' : 'notifyPanel.showSecret')" :title="t(revealed.PUSHPLUS_TOKEN ? 'notifyPanel.hideSecret' : 'notifyPanel.showSecret')" @click="toggleReveal('PUSHPLUS_TOKEN')"><EyeOff v-if="revealed.PUSHPLUS_TOKEN" class="h-4 w-4" /><Eye v-else class="h-4 w-4" /></button></div></div>
           <div class="grid gap-2"><Label>Topic</Label><Input :model-value="form.PUSHPLUS_TOPIC ?? ''" :placeholder="t('notifyPanel.pushplus.topicPlaceholder')" @update:model-value="(value) => updateField('PUSHPLUS_TOPIC', String(value))" /></div>
         </CardContent>
         <CardFooter class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Badge :variant="isChannelConfigured('pushplus') ? 'default' : 'outline'">{{ resolveChannelBadge('pushplus') }}</Badge><div class="flex flex-wrap gap-2"><Button variant="ghost" size="sm" :disabled="props.isSaving" @click="requestClear('pushplus')"><Trash2 class="h-4 w-4" />{{ t('notifyPanel.clear') }}</Button><Button variant="outline" size="sm" :disabled="props.isSaving" @click="handleTest('pushplus')"><TestTube2 class="h-4 w-4" />{{ t('notifyPanel.test') }}</Button></div></CardFooter>
@@ -313,7 +317,7 @@ function resolveChannelBadge(channel: ChannelKey) {
       <div class="grid gap-4 xl:grid-cols-2">
         <Card class="app-surface-subtle overflow-hidden border-l-4 border-l-amber-500">
           <CardHeader><CardTitle>Bark</CardTitle><CardDescription>{{ t('notifyPanel.bark.description') }}</CardDescription></CardHeader>
-          <CardContent class="space-y-2"><Label>Bark URL</Label><Input :model-value="form.BARK_URL ?? ''" :placeholder="t('notifyPanel.secretPlaceholder')" @update:model-value="(value) => updateSecretField('BARK_URL', String(value))" /><p class="text-xs text-slate-500">{{ secretConfigured.BARK_URL ? t('notifyPanel.bark.configuredHint') : t('notifyPanel.notConfigured') }}</p></CardContent>
+          <CardContent class="space-y-2"><Label>Bark URL</Label><div class="relative"><Input :type="revealed.BARK_URL ? 'text' : 'password'" class="pr-10" :model-value="form.BARK_URL ?? ''" placeholder="https://api.day.app/<key>/" @update:model-value="(value) => updateSecretField('BARK_URL', String(value))" /><button type="button" class="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-500 hover:text-slate-800" :aria-label="t(revealed.BARK_URL ? 'notifyPanel.hideSecret' : 'notifyPanel.showSecret')" :title="t(revealed.BARK_URL ? 'notifyPanel.hideSecret' : 'notifyPanel.showSecret')" @click="toggleReveal('BARK_URL')"><EyeOff v-if="revealed.BARK_URL" class="h-4 w-4" /><Eye v-else class="h-4 w-4" /></button></div><p class="text-xs text-slate-500">{{ secretConfigured.BARK_URL ? t('notifyPanel.bark.configuredHint') : t('notifyPanel.notConfigured') }}</p></CardContent>
           <CardFooter class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Badge :variant="isChannelConfigured('bark') ? 'default' : 'outline'">{{ resolveChannelBadge('bark') }}</Badge><div class="flex flex-wrap gap-2"><Button variant="ghost" size="sm" :disabled="props.isSaving" @click="requestClear('bark')"><Trash2 class="h-4 w-4" />{{ t('notifyPanel.clear') }}</Button><Button variant="outline" size="sm" :disabled="props.isSaving" @click="handleTest('bark')"><TestTube2 class="h-4 w-4" />{{ t('notifyPanel.test') }}</Button></div></CardFooter>
         </Card>
 
@@ -321,7 +325,7 @@ function resolveChannelBadge(channel: ChannelKey) {
           <CardHeader><CardTitle>Gotify</CardTitle><CardDescription>{{ t('notifyPanel.gotify.description') }}</CardDescription></CardHeader>
           <CardContent class="grid gap-4 md:grid-cols-2">
             <div class="grid gap-2"><Label>Gotify URL</Label><Input :model-value="form.GOTIFY_URL ?? ''" placeholder="https://gotify.example.com" @update:model-value="(value) => updateField('GOTIFY_URL', String(value))" /></div>
-            <div class="grid gap-2"><Label>Gotify Token</Label><Input type="password" :model-value="form.GOTIFY_TOKEN ?? ''" :placeholder="t('notifyPanel.secretKeepPlaceholder')" @update:model-value="(value) => updateSecretField('GOTIFY_TOKEN', String(value))" /></div>
+            <div class="grid gap-2"><Label>Gotify Token</Label><div class="relative"><Input :type="revealed.GOTIFY_TOKEN ? 'text' : 'password'" class="pr-10" :model-value="form.GOTIFY_TOKEN ?? ''" placeholder="Token" @update:model-value="(value) => updateSecretField('GOTIFY_TOKEN', String(value))" /><button type="button" class="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-500 hover:text-slate-800" :aria-label="t(revealed.GOTIFY_TOKEN ? 'notifyPanel.hideSecret' : 'notifyPanel.showSecret')" :title="t(revealed.GOTIFY_TOKEN ? 'notifyPanel.hideSecret' : 'notifyPanel.showSecret')" @click="toggleReveal('GOTIFY_TOKEN')"><EyeOff v-if="revealed.GOTIFY_TOKEN" class="h-4 w-4" /><Eye v-else class="h-4 w-4" /></button></div></div>
           </CardContent>
           <CardFooter class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Badge :variant="isChannelConfigured('gotify') ? 'default' : 'outline'">{{ resolveChannelBadge('gotify') }}</Badge><div class="flex flex-wrap gap-2"><Button variant="ghost" size="sm" :disabled="props.isSaving" @click="requestClear('gotify')"><Trash2 class="h-4 w-4" />{{ t('notifyPanel.clear') }}</Button><Button variant="outline" size="sm" :disabled="props.isSaving" @click="handleTest('gotify')"><TestTube2 class="h-4 w-4" />{{ t('notifyPanel.test') }}</Button></div></CardFooter>
         </Card>
@@ -330,14 +334,14 @@ function resolveChannelBadge(channel: ChannelKey) {
       <div class="grid gap-4 xl:grid-cols-2">
         <Card class="app-surface-subtle overflow-hidden border-l-4 border-l-emerald-500">
           <CardHeader><CardTitle>{{ t('notifyPanel.wecom.title') }}</CardTitle><CardDescription>{{ t('notifyPanel.wecom.description') }}</CardDescription></CardHeader>
-          <CardContent class="space-y-2"><Label>{{ t('notifyPanel.wecom.urlLabel') }}</Label><Input :model-value="form.WX_BOT_URL ?? ''" :placeholder="t('notifyPanel.secretPlaceholder')" @update:model-value="(value) => updateSecretField('WX_BOT_URL', String(value))" /><p class="text-xs text-slate-500">{{ secretConfigured.WX_BOT_URL ? t('notifyPanel.wecom.configuredHint') : t('notifyPanel.notConfigured') }}</p></CardContent>
+          <CardContent class="space-y-2"><Label>{{ t('notifyPanel.wecom.urlLabel') }}</Label><div class="relative"><Input :type="revealed.WX_BOT_URL ? 'text' : 'password'" class="pr-10" :model-value="form.WX_BOT_URL ?? ''" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..." @update:model-value="(value) => updateSecretField('WX_BOT_URL', String(value))" /><button type="button" class="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-500 hover:text-slate-800" :aria-label="t(revealed.WX_BOT_URL ? 'notifyPanel.hideSecret' : 'notifyPanel.showSecret')" :title="t(revealed.WX_BOT_URL ? 'notifyPanel.hideSecret' : 'notifyPanel.showSecret')" @click="toggleReveal('WX_BOT_URL')"><EyeOff v-if="revealed.WX_BOT_URL" class="h-4 w-4" /><Eye v-else class="h-4 w-4" /></button></div><p class="text-xs text-slate-500">{{ secretConfigured.WX_BOT_URL ? t('notifyPanel.wecom.configuredHint') : t('notifyPanel.notConfigured') }}</p></CardContent>
           <CardFooter class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Badge :variant="isChannelConfigured('wecom') ? 'default' : 'outline'">{{ resolveChannelBadge('wecom') }}</Badge><div class="flex flex-wrap gap-2"><Button variant="ghost" size="sm" :disabled="props.isSaving" @click="requestClear('wecom')"><Trash2 class="h-4 w-4" />{{ t('notifyPanel.clear') }}</Button><Button variant="outline" size="sm" :disabled="props.isSaving" @click="handleTest('wecom')"><TestTube2 class="h-4 w-4" />{{ t('notifyPanel.test') }}</Button></div></CardFooter>
         </Card>
 
         <Card class="app-surface-subtle overflow-hidden border-l-4 border-l-cyan-500">
           <CardHeader><CardTitle>Telegram</CardTitle><CardDescription>{{ t('notifyPanel.telegram.description') }}</CardDescription></CardHeader>
           <CardContent class="grid gap-4 md:grid-cols-3">
-            <div class="grid gap-2"><Label>Bot Token</Label><Input type="password" :model-value="form.TELEGRAM_BOT_TOKEN ?? ''" :placeholder="t('notifyPanel.secretKeepPlaceholder')" @update:model-value="(value) => updateSecretField('TELEGRAM_BOT_TOKEN', String(value))" /></div>
+            <div class="grid gap-2"><Label>Bot Token</Label><div class="relative"><Input :type="revealed.TELEGRAM_BOT_TOKEN ? 'text' : 'password'" class="pr-10" :model-value="form.TELEGRAM_BOT_TOKEN ?? ''" placeholder="Token" @update:model-value="(value) => updateSecretField('TELEGRAM_BOT_TOKEN', String(value))" /><button type="button" class="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-500 hover:text-slate-800" :aria-label="t(revealed.TELEGRAM_BOT_TOKEN ? 'notifyPanel.hideSecret' : 'notifyPanel.showSecret')" :title="t(revealed.TELEGRAM_BOT_TOKEN ? 'notifyPanel.hideSecret' : 'notifyPanel.showSecret')" @click="toggleReveal('TELEGRAM_BOT_TOKEN')"><EyeOff v-if="revealed.TELEGRAM_BOT_TOKEN" class="h-4 w-4" /><Eye v-else class="h-4 w-4" /></button></div></div>
             <div class="grid gap-2"><Label>Chat ID</Label><Input :model-value="form.TELEGRAM_CHAT_ID ?? ''" :placeholder="t('notifyPanel.telegram.chatIdPlaceholder')" @update:model-value="(value) => updateField('TELEGRAM_CHAT_ID', String(value))" /></div>
             <div class="grid gap-2"><Label>{{ t('notifyPanel.telegram.apiBaseUrl') }}</Label><Input :model-value="form.TELEGRAM_API_BASE_URL ?? ''" placeholder="https://api.telegram.org" @update:model-value="(value) => updateField('TELEGRAM_API_BASE_URL', String(value))" /></div>
           </CardContent>
@@ -349,7 +353,7 @@ function resolveChannelBadge(channel: ChannelKey) {
         <CardHeader><CardTitle class="flex items-center gap-2"><Webhook class="h-4 w-4 text-rose-500" /> {{ t('notifyPanel.webhook.title') }}</CardTitle><CardDescription>{{ t('notifyPanel.webhook.description') }}</CardDescription></CardHeader>
         <CardContent class="grid gap-4">
           <div class="grid gap-4 md:grid-cols-2">
-            <div class="grid gap-2"><Label>{{ t('notifyPanel.webhook.urlLabel') }}</Label><Input :model-value="form.WEBHOOK_URL ?? ''" :placeholder="t('notifyPanel.secretPlaceholder')" @update:model-value="(value) => updateSecretField('WEBHOOK_URL', String(value))" /></div>
+            <div class="grid gap-2"><Label>{{ t('notifyPanel.webhook.urlLabel') }}</Label><div class="relative"><Input :type="revealed.WEBHOOK_URL ? 'text' : 'password'" class="pr-10" :model-value="form.WEBHOOK_URL ?? ''" placeholder="https://example.com/webhook" @update:model-value="(value) => updateSecretField('WEBHOOK_URL', String(value))" /><button type="button" class="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-500 hover:text-slate-800" :aria-label="t(revealed.WEBHOOK_URL ? 'notifyPanel.hideSecret' : 'notifyPanel.showSecret')" :title="t(revealed.WEBHOOK_URL ? 'notifyPanel.hideSecret' : 'notifyPanel.showSecret')" @click="toggleReveal('WEBHOOK_URL')"><EyeOff v-if="revealed.WEBHOOK_URL" class="h-4 w-4" /><Eye v-else class="h-4 w-4" /></button></div></div>
             <div class="grid gap-2"><Label>{{ t('notifyPanel.webhook.headersLabel') }}</Label><Textarea :model-value="form.WEBHOOK_HEADERS ?? ''" :placeholder="webhookHeadersPlaceholder" @update:model-value="(value) => updateSecretField('WEBHOOK_HEADERS', String(value))" /></div>
           </div>
           <div class="grid gap-4 md:grid-cols-2">

@@ -242,7 +242,7 @@ const enUSExtra = {
   },
   notifyPanel: {
     title: 'Notification Delivery Settings',
-    description: 'Configure, test, and clear each channel independently. Sensitive fields are never echoed back; leaving them blank preserves the current value.',
+    description: 'Configure, test, and clear each channel independently. Secret fields are hidden by default — click the eye to reveal them; other fields are shown as-is.',
     noActiveChannels: 'No notification channel configured yet',
     enabledChannels: 'Enabled: {channels}',
     supportedVariables: 'Supported variables: title / content / price / reason / desktop_link / mobile_link',
@@ -262,6 +262,8 @@ const enUSExtra = {
     footerHint: 'Saving submits only changed fields. Clear actions explicitly remove the related channel configuration.',
     secretPlaceholder: 'Leave blank to keep the current value, or enter a new value to overwrite it',
     secretKeepPlaceholder: 'Leave blank to keep the current value',
+    showSecret: 'Show value',
+    hideSecret: 'Hide value',
     notConfigured: 'Not configured yet.',
     channels: {
       title: 'Delivery Switches',
@@ -279,8 +281,8 @@ const enUSExtra = {
       description: 'Best for lightweight delivery. The topic URL is not sensitive and can be displayed directly.',
     },
     bark: {
-      description: 'The URL contains a device key and is intentionally hidden.',
-      configuredHint: 'A sensitive value is configured and hidden on this page.',
+      description: 'The URL contains a device key and is hidden by default — click the eye to reveal it.',
+      configuredHint: 'Configured.',
     },
     gotify: {
       description: 'URL and token must be configured together.',
@@ -291,18 +293,18 @@ const enUSExtra = {
     },
     wecom: {
       title: 'WeCom Bot',
-      description: 'The bot URL contains a key, so it is hidden and can only be updated or cleared.',
+      description: 'The bot URL contains a key and is hidden by default — click the eye to reveal it.',
       urlLabel: 'WeCom Bot URL',
-      configuredHint: 'Bot URL is already stored.',
+      configuredHint: 'Configured.',
     },
     telegram: {
-      description: 'The bot token is sensitive, while Chat ID and API base URL can be viewed and updated directly.',
+      description: 'The bot token is hidden by default — click the eye to reveal it; Chat ID and API base URL are shown directly.',
       chatIdPlaceholder: 'Example: 123456789',
       apiBaseUrl: 'API / Proxy Base URL',
     },
     webhook: {
       title: 'Generic Webhook',
-      description: 'Supports JSON template variables. URL and headers are treated as sensitive and are not echoed back.',
+      description: 'Supports JSON template variables. The URL is hidden by default — click the eye to reveal it; headers are shown directly.',
       urlLabel: 'Webhook URL',
       headersLabel: 'Webhook Headers (JSON)',
       headersPlaceholder: 'Leave blank to keep current value, e.g. ',

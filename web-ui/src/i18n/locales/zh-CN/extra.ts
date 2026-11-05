@@ -242,7 +242,7 @@ const zhCNExtra = {
   },
   notifyPanel: {
     title: '通知推送设置',
-    description: '按渠道单独配置、测试和清空。敏感字段不会回显，留空表示保留现有值。',
+    description: '按渠道单独配置、测试和清空。密钥类字段默认隐藏，点眼睛可查看明文；其余字段直接显示。',
     noActiveChannels: '尚未配置可用通知渠道',
     enabledChannels: '已启用：{channels}',
     supportedVariables: '支持变量：title / content / price / reason / desktop_link / mobile_link',
@@ -262,6 +262,8 @@ const zhCNExtra = {
     footerHint: '保存会只提交改动字段；清空操作会显式删除对应渠道配置。',
     secretPlaceholder: '已配置则留空保留，输入新值覆盖',
     secretKeepPlaceholder: '已配置则留空保留',
+    showSecret: '显示明文',
+    hideSecret: '隐藏明文',
     notConfigured: '尚未配置。',
     channels: {
       title: '发送渠道开关',
@@ -279,8 +281,8 @@ const zhCNExtra = {
       description: '适合轻量推送，URL 非敏感，可直接回显和修改。',
     },
     bark: {
-      description: 'URL 含设备 key，已改为不回显模式。',
-      configuredHint: '已配置敏感值，当前页面不回显。',
+      description: 'URL 含设备 key，默认隐藏，点眼睛可查看。',
+      configuredHint: '已配置。',
     },
     gotify: {
       description: 'URL 与 Token 必须成对配置。',
@@ -291,18 +293,18 @@ const zhCNExtra = {
     },
     wecom: {
       title: '企业微信机器人',
-      description: 'Bot URL 含 key，不回显，仅支持更新或清空。',
+      description: 'Bot URL 含 key，默认隐藏，点眼睛可查看。',
       urlLabel: '企业微信 Bot URL',
-      configuredHint: '已保存机器人地址。',
+      configuredHint: '已配置。',
     },
     telegram: {
-      description: 'Bot Token 属于敏感字段，Chat ID 与反代地址可直接查看和修改。',
+      description: 'Bot Token 默认隐藏，点眼睛可查看；Chat ID 与反代地址直接显示。',
       chatIdPlaceholder: '例如：123456789',
       apiBaseUrl: 'API / 反代地址',
     },
     webhook: {
       title: '通用 Webhook',
-      description: '支持 JSON 模板变量；URL 和 Headers 作为敏感字段不回显。',
+      description: '支持 JSON 模板变量；URL 默认隐藏，可点眼睛查看，Headers 直接显示。',
       urlLabel: 'Webhook URL',
       headersLabel: 'Webhook Headers (JSON)',
       headersPlaceholder: '已配置则留空保留，例如：',
