@@ -90,3 +90,19 @@ def test_reanalysis_missing_task_does_not_borrow_another_tasks_criteria(analysis
         row = conn.execute("SELECT raw_json, is_recommended FROM result_items WHERE item_id='orphan'").fetchone()
     assert row["is_recommended"] == 0
     assert json.loads(row["raw_json"])["ai_analysis"]["reason"] == "旧结论"
+
+
+def test_failed_item_reports_reason_on_its_own_progress_line(analysis_db, monkeypatch):
+    import src.ai_handler as handler
+
+    analysis_db("orphan", "不存在的任务", "不存在的型号")
+
+    async def analyze(record, images, prompt):
+        return {"is_recommended": True, "reason": "不应该发起本次分析"}
+
+    monkeypatch.setattr(handler, "get_ai_analysis", analyze)
+    result = asyncio.run(svc.run_analyze(scope="all", workers=1))
+
+    assert any("[1/1] orphan 失败" in line for line in result["recent"])
+    assert any("未找到任务「不存在的任务」" in line for line in result["recent"])
+    assert not any(line.startswith("[x]") for line in result["recent"])

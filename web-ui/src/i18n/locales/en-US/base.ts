@@ -169,6 +169,7 @@ const enUS = {
       workers: 'Concurrency',
       note: 'Note: re-analysis downloads product images and calls the AI API; re-running everything costs time and quota.',
       start: 'Start',
+      startBackground: 'Run in background',
       started: 'Re-analysis started',
       startFailed: 'Failed to start',
       running: 'Analyzing {done}/{total}',

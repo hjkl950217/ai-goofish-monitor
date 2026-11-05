@@ -97,6 +97,8 @@ def build_prompt(task_name: Optional[str] = None):
                 "SELECT * FROM tasks ORDER BY enabled DESC, id ASC LIMIT 1"
             ).fetchone()
     if not row:
+        if task_name:
+            raise RuntimeError(f"未找到任务「{task_name}」（可能已改名或删除），本条未分析")
         raise RuntimeError("未找到可用任务（检查任务是否启用）")
     prompt = build_analysis_prompt(row, root=repo_root)
     if len(prompt) < 100 or "{{CRITERIA_SECTION}}" in prompt:
@@ -199,6 +201,7 @@ async def run_analyze(
             )
             image_paths: List[str] = []
             result = None
+            error_text = ""
             try:
                 source_task = str(record.get("task_name") or "").strip()
                 if not source_task:
@@ -210,7 +213,7 @@ async def run_analyze(
                     image_paths = await download_all_images(item_id, urls, task_name="backfill")
                 result = await get_ai_analysis(record, image_paths, prompt)
             except Exception as exc:  # noqa: BLE001
-                _push_recent(f"[x] {item_id} 分析异常: {exc}")
+                error_text = str(exc)
 
             if result:
                 result.setdefault("analysis_source", "ai")
@@ -254,6 +257,7 @@ async def run_analyze(
             )
             _push_recent(
                 f"[{_status['done']}/{total}] {item_id} {flag}"
+                + (f" · {error_text}" if error_text else "")
                 + (f" · {result.get('value_score')}分" if result and result.get("value_score") is not None else "")
             )
             save_state(state)

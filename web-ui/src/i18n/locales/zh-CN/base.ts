@@ -169,6 +169,7 @@ const zhCN = {
       workers: '并发数',
       note: '提示：重新分析会下载商品图片并调用 AI 接口，全部重跑耗时和用量都较大。',
       start: '开始分析',
+      startBackground: '后台执行',
       started: '已开始重新分析',
       startFailed: '启动失败',
       running: '分析中 {done}/{total}',

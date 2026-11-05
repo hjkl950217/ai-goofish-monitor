@@ -128,13 +128,15 @@ const reanalyzeLimit = ref(20)
 const reanalyzeWorkers = ref(3)
 const isStarting = ref(false)
 let unsubscribe: (() => void) | null = null
+let wasRunning = false
 
 onMounted(() => {
   unsubscribe = reanalyze.subscribe((s) => {
-    if (!s.running && isReanalyzeOpen.value) {
-      // 完成后自动刷新结果列表
+    if (wasRunning && !s.running) {
+      // 完成后自动刷新结果列表（弹窗关闭时同样生效）
       emit('reanalyze-finished')
     }
+    wasRunning = s.running
   })
 })
 onUnmounted(() => {
@@ -156,7 +158,7 @@ async function handleClearImages() {
   }
 }
 
-async function handleStartReanalyze() {
+async function startReanalyze(closeAfter: boolean) {
   isStarting.value = true
   try {
     await reanalyze.start({
@@ -165,6 +167,7 @@ async function handleStartReanalyze() {
       workers: reanalyzeWorkers.value,
     })
     toast({ title: t('results.reanalyze.started') })
+    if (closeAfter) isReanalyzeOpen.value = false
   } catch (e) {
     toast({
       title: t('results.reanalyze.startFailed'),
@@ -174,6 +177,14 @@ async function handleStartReanalyze() {
   } finally {
     isStarting.value = false
   }
+}
+
+function handleStartReanalyze() {
+  return startReanalyze(false)
+}
+
+function handleStartReanalyzeInBackground() {
+  return startReanalyze(true)
 }
 
 async function handleCancelReanalyze() {
@@ -356,9 +367,11 @@ async function handleCancelReanalyze() {
                 :style="{ width: reanalyzeState.total ? `${(reanalyzeState.done / reanalyzeState.total) * 100}%` : '0%' }"
               ></div>
             </div>
-            <p v-if="reanalyzeState.recent.length" class="mt-2 max-h-24 overflow-auto text-xs text-emerald-700/80">
-              {{ reanalyzeState.recent.slice(-6).join('  ·  ') }}
-            </p>
+            <div v-if="reanalyzeState.recent.length" class="mt-2 space-y-0.5 text-xs text-emerald-700/80">
+              <p v-for="(line, i) in reanalyzeState.recent.slice(-3)" :key="i" class="break-words">
+                {{ line }}
+              </p>
+            </div>
           </div>
 
           <div v-else-if="reanalyzeState.message" class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
@@ -432,14 +445,23 @@ async function handleCancelReanalyze() {
           >
             {{ t('results.reanalyze.cancel') }}
           </Button>
-          <Button
-            v-else
-            :disabled="isStarting"
-            @click="handleStartReanalyze"
-          >
-            <Loader2 v-if="isStarting" class="mr-1 h-4 w-4 animate-spin" />
-            {{ t('results.reanalyze.start') }}
-          </Button>
+          <template v-else>
+            <Button
+              variant="outline"
+              :disabled="isStarting"
+              @click="handleStartReanalyzeInBackground"
+            >
+              <Loader2 v-if="isStarting" class="mr-1 h-4 w-4 animate-spin" />
+              {{ t('results.reanalyze.startBackground') }}
+            </Button>
+            <Button
+              :disabled="isStarting"
+              @click="handleStartReanalyze"
+            >
+              <Loader2 v-if="isStarting" class="mr-1 h-4 w-4 animate-spin" />
+              {{ t('results.reanalyze.start') }}
+            </Button>
+          </template>
         </DialogFooter>
       </DialogContent>
     </Dialog>
