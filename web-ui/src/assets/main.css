@@ -128,3 +128,9 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Edge 自带的密码显示按钮会和页面里的眼睛图标重叠，统一关掉 */
+input[type='password']::-ms-reveal,
+input[type='password']::-ms-clear {
+  display: none;
+}
