@@ -438,13 +438,17 @@ async function handleCancelReanalyze() {
         </div>
 
         <DialogFooter>
-          <Button
-            v-if="reanalyzeState.running"
-            variant="outline"
-            @click="handleCancelReanalyze"
-          >
-            {{ t('results.reanalyze.cancel') }}
-          </Button>
+          <template v-if="reanalyzeState.running">
+            <Button
+              variant="outline"
+              @click="handleCancelReanalyze"
+            >
+              {{ t('results.reanalyze.cancel') }}
+            </Button>
+            <Button @click="isReanalyzeOpen = false">
+              {{ t('results.reanalyze.startBackground') }}
+            </Button>
+          </template>
           <template v-else>
             <Button
               variant="outline"

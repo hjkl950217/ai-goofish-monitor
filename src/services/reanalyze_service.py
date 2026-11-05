@@ -81,6 +81,19 @@ def fetch_rows(result_filename: Optional[str] = None) -> List[sqlite3.Row]:
         ))
 
 
+def fetch_task_names() -> set[str]:
+    with sqlite_connection() as conn:
+        return {str(r["task_name"]) for r in conn.execute("SELECT task_name FROM tasks")}
+
+
+def row_task_name(row: sqlite3.Row) -> str:
+    """取 record 的 task_name；解析失败或为空返回 ""。"""
+    try:
+        return str(json.loads(row["raw_json"]).get("task_name") or "").strip()
+    except (json.JSONDecodeError, TypeError, AttributeError):
+        return ""
+
+
 def build_prompt(task_name: Optional[str] = None):
     """按任务配置组装 prompt：base_prompt + criteria 模板。"""
     from pathlib import Path
@@ -122,7 +135,7 @@ def _push_recent(line: str) -> None:
 # --------------------------------------------------------------- 主流程
 
 def _select_targets(state: dict, scope: str, only_ids: Optional[List[str]],
-                    result_filename: Optional[str]) -> List[sqlite3.Row]:
+                    result_filename: Optional[str]) -> tuple[List[sqlite3.Row], int]:
     rows = fetch_rows(result_filename)
     dead_ids = set(state.get("dead", {}))
     analyzed = state.get("analyzed", {})
@@ -137,7 +150,16 @@ def _select_targets(state: dict, scope: str, only_ids: Optional[List[str]],
             r for r in rows
             if str(r["item_id"]) not in analyzed and str(r["item_id"]) not in dead_ids
         ]
-    return candidates
+
+    task_names = fetch_task_names()
+    targets = []
+    skipped = 0
+    for row in candidates:
+        if row_task_name(row) in task_names:
+            targets.append(row)
+        else:
+            skipped += 1
+    return targets, skipped
 
 
 async def run_analyze(
@@ -161,7 +183,7 @@ async def run_analyze(
     state = load_state()
     prompts: Dict[str, tuple[str, str]] = {}
 
-    targets = _select_targets(state, scope, only_ids, result_filename)
+    targets, skipped = _select_targets(state, scope, only_ids, result_filename)
     if limit:
         targets = targets[:limit]
 
@@ -178,11 +200,16 @@ async def run_analyze(
         "recent": [],
     })
     _push_recent("逐条使用商品所属任务的分析标准")
+    if skipped:
+        _push_recent(f"已跳过 {skipped} 条：所属任务已删除或改名")
 
     if not targets:
         _status.update({
             "running": False,
-            "message": "没有需要分析的条目",
+            "message": (
+                f"没有可分析的条目（{skipped} 条所属任务已不存在）"
+                if skipped else "没有需要分析的条目"
+            ),
             "finished_at": datetime.now().isoformat(timespec="seconds"),
         })
         return get_status()
